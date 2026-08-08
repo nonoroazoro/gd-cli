@@ -45,7 +45,7 @@ Before a query, run `gd-cli info`:
 - Use `affixes --type <itemClass>` for compatible prefix and suffix records.
 - Use `ascended-affixes --category <category>` for Ascended affixes. Read valid raw values from `info` or `schema`.
 - Keep normal and Ascended affix results separate. Combine them only in agent reasoning.
-- For BiS evaluation, model the complete rotation, filler actions, and trigger frequency. Do not rank only the main skill's single hit.
+- For BiS evaluation, default to sustained real-combat performance unless the user explicitly requests burst, one-shot, or single-hit optimization. Model the complete rotation, filler actions, WPS, and trigger frequency. Do not rank only the main skill's single hit.
 - Check `routesTruncated` before treating drop routes as complete.
 - CLI-owned text is English. Parsed names use the language selected by `init`.
 - Queries read only the CLI database. `init` opens game files read-only with shared access, cleans up only its own temporary database, and never modifies game files.

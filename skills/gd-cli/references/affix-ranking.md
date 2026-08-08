@@ -5,11 +5,26 @@ Identify the best type-compatible Prefix, Suffix, and Ascended affixes for a spe
 ## Required context
 
 - Exact `itemClass` for Prefix and Suffix compatibility.
-- Main skill, damage type, attack or cast style, and complete rotation.
+- Main skill, damage type, and attack or cast style.
 - Filler actions used during cooldowns and effects triggered by those actions.
 - Game-native Ascended category when Ascended ranking is requested.
 
-Mastery, base item, existing conversion, OA, target DA, speed caps, cooldowns, defenses, and the rest of the build improve accuracy. Without enough build context, return conditional candidates and do not claim a definitive BiS result.
+Mastery, base item, existing conversion, OA, target DA, speed caps, cooldowns, defenses, and the rest of the build improve accuracy. Do not require every detail before producing a useful ranking. Infer the most plausible rotation from the stated main skill, base item skill support, mastery skills, and candidate `skillBonuses`; state those assumptions. Return conditional candidates instead of a definitive BiS result when an unknown value can reverse the ranking.
+
+## Default objective
+
+When the user asks for the best or BiS affixes without naming an objective, optimize sustained real-combat performance over repeated cooldown cycles.
+
+- Use the main skill whenever available.
+- Fill every cooldown gap with the most plausible supported attack or cast.
+- Include WPS, DoT uptime, buffs, debuffs, sustain, and per-action triggers used by that filler.
+- Treat single-hit burst as a secondary result. Make it primary only when the user explicitly asks for burst, one-shot, or single-hit damage.
+- Treat sheet damage as supporting evidence, not the objective.
+- Value defense when it materially preserves attacking uptime or prevents death. Otherwise use it as a tie-breaker.
+
+If the filler is unknown, infer candidates from the base item's skill bonuses and modifiers, then give a sustained recommendation for the most likely rotation plus a reversal condition for another plausible filler. Never silently model cooldown gaps as idle time.
+
+When a cooldown main skill is paired with base-item support for a WPS, treat a WPS-capable default attack or default attack replacer as the likely filler. Inspect candidate affixes for ranks to that filler before ranking. A user calling the cooldown skill the main skill does not imply that filler damage is irrelevant.
 
 ## Candidate discovery
 
@@ -35,21 +50,41 @@ Prefix, Suffix, and Ascended are independent systems:
 
 Use raw numeric `stats` for reasoning and English `effects` for presentation.
 
-1. Build the complete rotation: main skill, cooldown gaps, filler actions, buffs, and relevant triggers.
-2. Remove stats unrelated to that rotation, damage type, or objective.
-3. Merge candidate stats with the base item and known build state when available.
-4. Compare complete affix packages, not isolated headline values.
-5. Read `skillBonuses` before ranking. A filler skill bonus remains relevant when the filler drives sustained damage or triggers.
-6. Compare `minimum` and `maximum`; treat equal values as fixed.
-7. For chance-based damage, use `chance / 100 * average(minimum, maximum)` as expected value while retaining the original chance and range.
-8. For per-action triggers, estimate trigger rate from eligible actions per second. Value speed only when it increases eligible actions and is below cap.
-9. Value Crit Damage only when OA permits critical hits against the target.
-10. Value deterministic cooldown reduction only for cooldown-limited skills. Evaluate chance-based cooldown effects from their trigger and action rate, never as equivalent global cooldown reduction.
-11. Evaluate conversion and resistance reduction only with their direction, damage type, duration, trigger, and stacking context.
-12. Detect overlap with stats already supplied by the base item or build. Marginal value determines BiS, not isolated magnitude.
-13. Treat opaque procs and granted skills as unknown unless returned fields expose their effect.
-14. Inspect `unmodeledFields`; report uncertainty when a relevant field is not modeled.
-15. Do not claim exact DPS without the base item and full build.
+1. Inspect the base item before ranking. Record every supported main skill, filler, WPS, modifier, conversion, and proc that can reveal the intended rotation.
+2. Build one complete repeated cycle: main-skill casts, cooldown gaps, filler actions, WPS, buffs, debuffs, DoT applications, and relevant triggers.
+3. Use sustained contribution per cycle as the primary comparison. Conceptually compare `(main-skill contribution + filler contribution + expected proc contribution + maintained DoT contribution) / cycle time`.
+4. Remove stats unrelated to that rotation, damage type, or objective. Mark unrelated skill ranks, speed types, damage types, and capped stats as dead value.
+5. Merge candidate stats with the base item and known build state. Marginal value determines BiS, not isolated magnitude.
+6. Read `skillBonuses` before ranking. Weight a filler or WPS bonus by how often it contributes during the complete cycle, not by whether it affects the named main skill.
+7. Compare complete Prefix plus Suffix packages. For close combinations, cancel shared stats first and compare only their differing marginal contributions.
+8. Compare `minimum` and `maximum`; treat equal values as fixed.
+9. For chance-based damage, use `chance / 100 * average(minimum, maximum)` per eligible action while retaining the original chance and range. Multiply the expected value by eligible actions per cycle.
+10. For per-action triggers, estimate trigger rate from eligible actions per second. Value speed when it increases main-skill execution or filler, WPS, and trigger counts and remains below cap.
+11. Do not discard Attack Speed or Cast Speed merely because the main skill has a cooldown. Apply it to actions performed during the cooldown gap.
+12. Value OA through hit and crit frequency against target DA. Value Crit Damage only when OA permits critical hits. Do not call either universally superior without the OA and target DA context.
+13. Value deterministic cooldown reduction only for cooldown-limited skills. Evaluate chance-based cooldown effects from their trigger and action rate, never as equivalent global cooldown reduction.
+14. Evaluate conversion and resistance reduction only with their direction, damage type, duration, trigger, and stacking context.
+15. Account for WPS eligibility and pool weight. A WPS rank is dead value when the filler cannot trigger WPS or when the WPS is intentionally excluded.
+16. Treat opaque procs and granted skills as unknown unless returned fields expose their effect.
+17. Inspect `unmodeledFields`; report uncertainty when a relevant field is not modeled.
+18. Do not claim exact DPS without the base item and full build. Prefer dominance, expected-value, and reversal-condition reasoning over invented precision.
+
+### Cooldown rotation template
+
+For a cooldown main skill, use this sequence:
+
+1. Determine casts per cycle from cooldown and deterministic cooldown reduction.
+2. Estimate usable filler actions in the remaining time from animation time and effective speed.
+3. Apply filler skill ranks, WPS eligibility, and per-action proc expectations to those actions.
+4. Add main-skill and filler contributions, then compare candidates over the same cycle length.
+5. Report a separate burst winner only when it differs from the sustained winner.
+
+If exact timings are unavailable, compare directionally:
+
+- More filler ranks, WPS ranks, and speed gain value as filler uptime increases.
+- More OA and Crit Damage value as target DA rises from trivial to crit-relevant ranges, then depend on actual OA breakpoints.
+- Chance damage value equals its expectation across all eligible main and filler actions, not only the main-skill hit.
+- A bonus to an unused skill has zero offensive value even when the rest of the affix is strong.
 
 ### Damage fields
 
@@ -87,15 +122,15 @@ Bleeding is independent from Pierce. Legacy fields map `characterStrength` to Ph
 
 Use these as dependency-aware guidelines, not a fixed score formula.
 
-For direct weapon damage:
+For sustained direct weapon damage:
 
-1. Relevant skill ranks or modifiers
-2. Matching flat damage scaled by weapon damage
-3. OA and OA-supported Crit Damage
-4. Attack Speed or Cast Speed below cap
+1. Main-skill, filler, and WPS ranks or modifiers weighted by cycle usage
+2. Matching flat damage scaled by Weapon Damage across all eligible actions
+3. Attack Speed or Cast Speed that adds filler, WPS, or trigger opportunities below cap
+4. OA and OA-supported Crit Damage across the rotation
 5. Matching percentage damage and All Damage
 6. Useful conversion and resistance reduction
-7. Defense and sustain as tie-breakers
+7. Defense and sustain that preserve combat uptime
 
 For damage over time:
 
@@ -106,18 +141,18 @@ For damage over time:
 5. Speed only when it improves application or direct-hit output
 6. Survivability
 
-Compare sustained rotation damage separately from single-hit burst when they favor different affixes. Close results should remain conditional when build context can reverse them. Prefer a tied tier over invented precision. A generally strong affix is not automatically BiS for a specific build.
+Lead with the sustained rotation winner. Compare single-hit burst separately when it favors a different affix, and never relabel that burst winner as the overall BiS without an explicit burst objective. Close results should remain conditional when build context can reverse them. Prefer a tied tier over invented precision. A generally strong affix is not automatically BiS for a specific build.
 
 ## Output
 
 Lead with the BiS recommendation only when evidence supports it. Include:
 
-1. Exact `itemClass`, Ascended category when used, filters, objective, and assumptions
+1. Exact `itemClass`, Ascended category when used, filters, sustained objective, inferred rotation, and assumptions
 2. Separate Prefix, Suffix, and Ascended candidate evaluations
 3. Record IDs, parsed names, relevant ranges, and skill modifier references
-4. Complete Prefix plus Suffix combinations and their marginal value to the rotation
-5. Separate sustained and single-hit recommendations when they differ
+4. Complete Prefix plus Suffix combinations and their marginal value over a repeated cycle
+5. Sustained recommendation first, followed by a single-hit recommendation only when it differs
 6. A short reason and reversal condition for each rank
 7. At least one conditional alternative when context is incomplete
 
-Do not output a bare score. Claim compatibility only from `affixes --type` or `ascended-affixes --category` results. Do not label a result BiS when missing build information can materially reverse it.
+Do not output a bare score. Claim compatibility only from `affixes --type` or `ascended-affixes --category` results. Do not label a result BiS when missing build information can materially reverse it. Do not answer a sustained-build question from the main skill's single-hit stats alone.
