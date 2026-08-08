@@ -155,6 +155,25 @@ internal sealed class CliDatabase : IDisposable
         return result;
     }
 
+    public Dictionary<string, string> LoadRecordNames(IEnumerable<string> records)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var chunk in records.Distinct(StringComparer.OrdinalIgnoreCase).Chunk(400))
+        {
+            using var command = _connection.CreateCommand();
+            var parameters = SqliteQuery.AddValues(command, "record", chunk);
+            command.CommandText = $"""
+                SELECT record_id, display_name
+                FROM records
+                WHERE record_id IN ({parameters})
+                """;
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+                result[reader.GetString(0)] = reader.GetString(1);
+        }
+        return result;
+    }
+
     public Dictionary<string, List<MonsterSource>> LoadMiSources(IEnumerable<string> itemRecords)
     {
         var result = new Dictionary<string, List<MonsterSource>>(StringComparer.OrdinalIgnoreCase);

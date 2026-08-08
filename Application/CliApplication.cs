@@ -332,7 +332,7 @@ internal sealed class CliApplication
 
         var stats = database.LoadStats(affixes.Select(affix => affix.RecordId));
         var statTags = new EnglishStatTags(database.LoadTags());
-        var effectBuilder = new AffixEffectBuilder(statTags);
+        var effectBuilder = _createAffixEffectBuilder(database, statTags, stats.Values);
         foreach (var affix in affixes)
         {
             affix.Stats = stats.GetValueOrDefault(affix.RecordId) ?? [];
@@ -353,7 +353,7 @@ internal sealed class CliApplication
         var modifierStats = database.LoadStats(
             modifiers.Values.SelectMany(value => value).Select(modifier => modifier.RecordId));
         var statTags = new EnglishStatTags(database.LoadTags());
-        var effectBuilder = new AffixEffectBuilder(statTags);
+        var effectBuilder = _createAffixEffectBuilder(database, statTags, stats.Values);
         foreach (var affix in affixes)
         {
             affix.Stats = stats.GetValueOrDefault(affix.RecordId) ?? [];
@@ -362,6 +362,20 @@ internal sealed class CliApplication
                 modifier.Stats = modifierStats.GetValueOrDefault(modifier.RecordId) ?? [];
             effectBuilder.Apply(affix);
         }
+    }
+
+    private static AffixEffectBuilder _createAffixEffectBuilder(
+        CliDatabase database,
+        EnglishStatTags statTags,
+        IEnumerable<List<RawStat>> stats)
+    {
+        var skillRecords = stats
+            .SelectMany(value => value)
+            .Where(stat =>
+                stat.Field.StartsWith("augmentSkillName", StringComparison.Ordinal) &&
+                !string.IsNullOrWhiteSpace(stat.TextValue))
+            .Select(stat => stat.TextValue ?? string.Empty);
+        return new AffixEffectBuilder(statTags, database.LoadRecordNames(skillRecords));
     }
 
     private void _writeEnvelope<T>(

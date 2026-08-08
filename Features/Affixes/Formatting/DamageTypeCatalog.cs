@@ -20,6 +20,7 @@ internal static class DamageTypeCatalog
         "Lightning",
         "Elemental",
         "Pierce",
+        "BonusPhysical",
         "Physical",
         "Life",
         "TotalDamage",

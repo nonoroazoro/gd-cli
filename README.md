@@ -71,6 +71,7 @@ Common options:
 - stderr contains JSON errors.
 - Exit codes indicate status.
 - Numeric fields are JSON numbers.
+- Affix `effects` include chance effects and skill bonuses; `skillBonuses` preserves stable skill record IDs and numeric levels.
 
 ### MI families
 

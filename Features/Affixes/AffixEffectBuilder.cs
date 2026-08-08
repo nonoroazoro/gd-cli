@@ -8,16 +8,25 @@ namespace GdCli.Features.Affixes;
 internal sealed partial class AffixEffectBuilder
 {
     private readonly StatFormatter _formatter;
+    private readonly IReadOnlyDictionary<string, string> _skillNames;
 
-    public AffixEffectBuilder(IStatTagProvider statTags)
+    public AffixEffectBuilder(
+        IStatTagProvider statTags,
+        IReadOnlyDictionary<string, string>? skillNames = null)
     {
         _formatter = new StatFormatter(statTags);
+        _skillNames = skillNames ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     }
 
     public void Apply(AffixRecord affix)
     {
         var stats = affix.Stats ?? throw new InvalidOperationException("Affix stats must be loaded before effect calculation.");
-        var result = _calculate(stats, affix.Kind.Equals("prefix", StringComparison.OrdinalIgnoreCase));
+        var skillBonuses = _buildSkillBonuses(stats);
+        affix.SkillBonuses = skillBonuses;
+        var result = _calculate(
+            stats,
+            affix.Kind.Equals("prefix", StringComparison.OrdinalIgnoreCase),
+            skillBonuses ?? []);
         affix.JitterPercent = result.JitterPercent;
         affix.UnmodeledFields = result.UnmodeledFields;
         affix.Effects = result.Effects;
@@ -27,7 +36,9 @@ internal sealed partial class AffixEffectBuilder
     {
         var stats = affix.Stats ?? throw new InvalidOperationException(
             "Ascended affix stats must be loaded before effect calculation.");
-        var result = _calculate(stats, true);
+        var skillBonuses = _buildSkillBonuses(stats);
+        affix.SkillBonuses = skillBonuses;
+        var result = _calculate(stats, true, skillBonuses ?? []);
         affix.UnmodeledFields = result.UnmodeledFields;
         affix.Effects = result.Effects;
     }
@@ -37,7 +48,8 @@ internal sealed partial class AffixEffectBuilder
         IReadOnlyList<StatEffect> Effects,
         IReadOnlyList<string> UnmodeledFields) _calculate(
             IReadOnlyList<RawStat> stats,
-            bool usePrefixStore)
+            bool usePrefixStore,
+            IReadOnlyList<SkillBonus> skillBonuses)
     {
         var input = stats
             .Where(stat => !string.IsNullOrWhiteSpace(stat.Field))
@@ -65,18 +77,22 @@ internal sealed partial class AffixEffectBuilder
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToList();
-        return (jitterPercent, _buildEffects(stats, minimum, maximum), unmodeledFields);
+        return (
+            jitterPercent,
+            _buildEffects(stats, minimum, maximum, skillBonuses),
+            unmodeledFields);
     }
 
     private List<StatEffect> _buildEffects(
         IReadOnlyList<RawStat> raw,
         IReadOnlyDictionary<string, double> minimum,
-        IReadOnlyDictionary<string, double> maximum)
+        IReadOnlyDictionary<string, double> maximum,
+        IReadOnlyList<SkillBonus> skillBonuses)
     {
         var effects = new List<StatEffect>();
-        _addSection(effects, "header", raw, minimum, maximum, StatSection.Header);
-        _addSection(effects, "body", raw, minimum, maximum, StatSection.Body);
-        _addSection(effects, "pet", raw, minimum, maximum, StatSection.Pet);
+        _addSection(effects, "header", raw, minimum, maximum, skillBonuses, StatSection.Header);
+        _addSection(effects, "body", raw, minimum, maximum, skillBonuses, StatSection.Body);
+        _addSection(effects, "pet", raw, minimum, maximum, skillBonuses, StatSection.Pet);
         return effects;
     }
 
@@ -86,13 +102,14 @@ internal sealed partial class AffixEffectBuilder
         IReadOnlyList<RawStat> raw,
         IReadOnlyDictionary<string, double> minimum,
         IReadOnlyDictionary<string, double> maximum,
+        IReadOnlyList<SkillBonus> skillBonuses,
         StatSection type)
     {
-        var minimumText = _formatter.ProcessStats(_buildStats(raw, minimum), type)
+        var minimumText = _formatter.ProcessStats(_buildStats(raw, minimum, skillBonuses), type)
             .Select(stat => stat.ToString())
             .Where(text => !string.IsNullOrWhiteSpace(text))
             .ToList();
-        var maximumBuckets = _formatter.ProcessStats(_buildStats(raw, maximum), type)
+        var maximumBuckets = _formatter.ProcessStats(_buildStats(raw, maximum, skillBonuses), type)
             .Select(stat => stat.ToString())
             .Where(text => !string.IsNullOrWhiteSpace(text))
             .GroupBy(_normalize)
@@ -117,8 +134,9 @@ internal sealed partial class AffixEffectBuilder
     }
 
     private static HashSet<StatValue> _buildStats(
-        IEnumerable<RawStat> raw,
-        IReadOnlyDictionary<string, double> values)
+        IReadOnlyList<RawStat> raw,
+        IReadOnlyDictionary<string, double> values,
+        IReadOnlyList<SkillBonus> skillBonuses)
     {
         var result = raw
             .Where(stat => stat.TextValue != null)
@@ -132,6 +150,17 @@ internal sealed partial class AffixEffectBuilder
             })
             .ToHashSet();
 
+        for (var index = 0; index < skillBonuses.Count; index++)
+        {
+            var skillBonus = skillBonuses[index];
+            result.Add(new StatValue
+            {
+                Field = $"augmentSkill{index + 1}",
+                TextValue = skillBonus.Name ?? skillBonus.RecordId,
+                Value = (float)skillBonus.Level
+            });
+        }
+
         foreach (var entry in values)
         {
             result.Add(new StatValue
@@ -144,6 +173,35 @@ internal sealed partial class AffixEffectBuilder
         return result;
     }
 
+    private List<SkillBonus>? _buildSkillBonuses(IReadOnlyList<RawStat> stats)
+    {
+        var result = new List<SkillBonus>();
+        foreach (var skillName in stats
+                     .Where(stat =>
+                         stat.Field.StartsWith("augmentSkillName", StringComparison.Ordinal) &&
+                         !string.IsNullOrWhiteSpace(stat.TextValue))
+                     .OrderBy(stat => stat.Field, StringComparer.Ordinal))
+        {
+            var slot = skillName.Field["augmentSkillName".Length..];
+            var level = stats.FirstOrDefault(stat => stat.Field == $"augmentSkillLevel{slot}");
+            if (level == null)
+                continue;
+
+            var recordId = skillName.TextValue ?? string.Empty;
+            var resolvedName = _skillNames.GetValueOrDefault(recordId);
+            result.Add(new SkillBonus
+            {
+                RecordId = recordId,
+                Name = string.IsNullOrWhiteSpace(resolvedName) ||
+                       string.Equals(resolvedName, recordId, StringComparison.OrdinalIgnoreCase)
+                    ? null
+                    : resolvedName,
+                Level = level.Value
+            });
+        }
+        return result.Count == 0 ? null : result;
+    }
+
     private static Dictionary<string, double> _extract(StatComputationResult result)
     {
         var values = new Dictionary<string, double>(result.Stats, StringComparer.Ordinal);
@@ -154,9 +212,15 @@ internal sealed partial class AffixEffectBuilder
         {
             if (!proc.Min.HasValue)
                 continue;
-            values[proc.Field] = values.TryGetValue(proc.Field, out var current)
-                ? current + proc.Min.Value
-                : proc.Min.Value;
+
+            var minimumField = proc.Field.EndsWith("Modifier", StringComparison.Ordinal)
+                ? proc.Field
+                : $"{proc.Field}Min";
+            values[minimumField] = proc.Min.Value;
+            if (proc.Max.HasValue)
+                values[$"{proc.Field}Max"] = proc.Max.Value;
+            if (proc.DurationMin.HasValue)
+                values[$"{proc.Field}DurationMin"] = proc.DurationMin.Value;
         }
 
         return values;

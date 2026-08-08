@@ -75,12 +75,10 @@ internal sealed partial class StatFormatter
     }
 
     /// <summary>
-    /// Process skill stats
-    /// These are non-standard skills, pre-processed by the parser.
+    /// Process normalized skill bonus stats.
     ///
-    /// augmentSkill contains both the skill name and the increment amount
-    /// augmentSkillExtras contains any additional info like which class it belongs to, and tier.
-    /// This is done to avoid cross-record/item lookups at runtime
+    /// augmentSkill contains both the resolved skill name and the increment amount.
+    /// augmentSkillExtras contains optional mastery and tier metadata.
     /// </summary>
     /// <param name="stats"></param>
     /// <param name="result"></param>

@@ -19,6 +19,9 @@ internal sealed class AscendedAffixRecord
     public IReadOnlyList<StatEffect>? Effects { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<SkillBonus>? SkillBonuses { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? UnmodeledFields { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

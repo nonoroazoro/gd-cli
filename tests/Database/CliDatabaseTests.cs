@@ -19,4 +19,22 @@ public sealed class CliDatabaseTests
         Assert.Equal(1, info.AscendedSkillModifierCount);
         Assert.Equal(["oneHandMelee"], info.AscendedCategories);
     }
+
+    [Fact]
+    public void LoadRecordNamesResolvesRecordsInOneQuerySurface()
+    {
+        using var fixture = new TestDatabase();
+        using var database = new CliDatabase(fixture.Path);
+
+        var names = database.LoadRecordNames(
+        [
+            "RECORDS/SKILLS/ITEMSKILLSGDX3/SKILLMODIFIERS/ASCENDED/A.DBR",
+            "records/missing.dbr"
+        ]);
+
+        Assert.Single(names);
+        Assert.Equal(
+            "Skill Power",
+            names["records/skills/itemskillsgdx3/skillmodifiers/ascended/a.dbr"]);
+    }
 }

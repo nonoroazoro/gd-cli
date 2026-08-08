@@ -98,7 +98,8 @@ internal sealed class SchemaDescription
             ["requiredLevel"] = "number",
             ["jitterPercent"] = "number from lootRandomizerJitter",
             ["stats"] = "RawStat[] with numeric boundaries",
-            ["effects"] = "English minimum and maximum effect text",
+            ["effects"] = "English minimum and maximum effect text, including skill bonuses and chance effects",
+            ["skillBonuses"] = "resolved skill level bonuses with stable record IDs",
             ["unmodeledFields"] = "raw fields not modeled by the range engine"
         };
 
@@ -111,6 +112,7 @@ internal sealed class SchemaDescription
             ["groups"] = "affix or mastery table groups",
             ["stats"] = "direct RawStat[] with numeric boundaries",
             ["effects"] = "English minimum and maximum direct effect text",
+            ["skillBonuses"] = "resolved direct skill level bonuses with stable record IDs",
             ["unmodeledFields"] = "raw direct fields not modeled by the range engine",
             ["skillModifiers"] = "referenced skill modifier records and RawStat[]"
         };
