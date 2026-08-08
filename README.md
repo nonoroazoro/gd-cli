@@ -1,6 +1,20 @@
 # gd-cli
 
-Agent-first CLI for querying Grim Dawn items, affixes, monster-specific drops, and map coordinates. Output is compact JSON.
+Agent-first CLI for querying Grim Dawn items, affixes, monster-specific drops, and map coordinates. It is designed for AI coding agents, not interactive human use. Commands return stable, compact JSON for agent discovery, filtering, and composition.
+
+## AI agent setup
+
+Extract the release and use its directory as the agent workspace. Install or link `skills/gd-cli` into the agent's Skill directory so the bundled instructions stay aligned with the executable.
+
+For Codex on Windows:
+
+```powershell
+New-Item -ItemType Junction `
+    -Path "$HOME\.codex\skills\gd-cli" `
+    -Target (Resolve-Path ".\skills\gd-cli")
+```
+
+Then ask the agent to initialize or query Grim Dawn data with `gd-cli`. The Skill requires `init` only when `data/gd-cli.db` is absent and prevents an agent from rebuilding an existing database unless explicitly requested.
 
 ## Game data parsing
 
