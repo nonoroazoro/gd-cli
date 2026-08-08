@@ -38,6 +38,21 @@ public sealed class CliApplicationTests
     }
 
     [Fact]
+    public void InvalidOutputQueryIsRejectedBeforeDatabaseAccess()
+    {
+        using var standardOutput = new StringWriter(CultureInfo.InvariantCulture);
+        using var standardError = new StringWriter(CultureInfo.InvariantCulture);
+        var application = new CliApplication(standardOutput, standardError);
+
+        var exitCode = application.Run(["info", "--query", "["]);
+
+        Assert.NotEqual(0, exitCode);
+        Assert.Equal(string.Empty, standardOutput.ToString());
+        using var error = JsonDocument.Parse(standardError.ToString());
+        Assert.Equal("invalid_arguments", error.RootElement.GetProperty("code").GetString());
+    }
+
+    [Fact]
     public void CommandHelpDoesNotExecuteTheCommand()
     {
         using var standardOutput = new StringWriter(CultureInfo.InvariantCulture);

@@ -43,4 +43,25 @@ public sealed class CommandLineParserTests
         Assert.Throws<CommandLineException>(() =>
             CommandLineParser.Parse(["group", "missing", "--help"], root));
     }
+
+    [Fact]
+    public void ParseRequiresExplicitBooleanMiValue()
+    {
+        var options = CommandLineParser.Parse(["items", "--mi", "true"]);
+
+        Assert.True(options.IsMi);
+        Assert.True(options.MiSpecified);
+        Assert.Throws<CommandLineException>(() => CommandLineParser.Parse(["items", "--mi", "yes"]));
+    }
+
+    [Fact]
+    public void ParseReadsAffixCompatibilityAndAscendedCategoryFilters()
+    {
+        var affixes = CommandLineParser.Parse(["affixes", "--type", "WeaponMelee_Mace"]);
+        var ascended = CommandLineParser.Parse(
+            ["ascended-affixes", "--category", "oneHandMelee"]);
+
+        Assert.Equal("WeaponMelee_Mace", affixes.ItemClass);
+        Assert.Equal("oneHandMelee", ascended.AscendedCategory);
+    }
 }

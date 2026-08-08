@@ -17,4 +17,15 @@ public sealed class CommandCatalogTests
         });
     }
 
+    [Fact]
+    public void AffixCommandsExposeSeparateCompatibilityFilters()
+    {
+        var affixes = CommandCatalog.GetCommand(["affixes"]);
+        var ascended = CommandCatalog.GetCommand(["ascended-affixes"]);
+
+        Assert.Contains("--type VALUE|all", affixes.Options);
+        Assert.DoesNotContain(affixes.Options, option => option.StartsWith("--category", StringComparison.Ordinal));
+        Assert.Contains("--category VALUE|all", ascended.Options);
+        Assert.DoesNotContain(ascended.Options, option => option.StartsWith("--type", StringComparison.Ordinal));
+    }
 }

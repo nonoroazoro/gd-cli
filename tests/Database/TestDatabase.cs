@@ -25,13 +25,15 @@ internal sealed class TestDatabase : IDisposable
                 ('gameLanguage', 'EN'),
                 ('gameDirectory', 'test');
 
-            INSERT INTO records(id, record_id, source_name, class, display_name) VALUES
-                (1, 'records/items/a.dbr', 'base', 'Item', 'Alpha'),
-                (2, 'records/items/b.dbr', 'base', 'Item', 'Beta'),
-                (3, 'records/items/c.dbr', 'base', 'Item', 'Alpine'),
-                (4, 'records/items/percent.dbr', 'base', 'Item', '100% Blade'),
-                (5, 'records/affixes/a.dbr', 'base', 'Affix', 'Balanced'),
-                (6, 'records/affixes/b.dbr', 'base', 'Affix', 'Savage');
+            INSERT INTO records(id, record_id, source_name, class, name_tag, display_name) VALUES
+                (1, 'records/items/a.dbr', 'base', 'Item', 'tagAlpha', 'Alpha'),
+                (2, 'records/items/b.dbr', 'base', 'Item', 'tagShared', 'Beta'),
+                (3, 'records/items/c.dbr', 'base', 'Item', 'tagShared', 'Alpine'),
+                (4, 'records/items/percent.dbr', 'base', 'Item', '', '100% Blade'),
+                (5, 'records/affixes/a.dbr', 'base', 'Affix', NULL, 'Balanced'),
+                (6, 'records/affixes/b.dbr', 'base', 'Affix', NULL, 'Savage'),
+                (900, 'records/items/lootaffixes/ascended/a.dbr', 'gdx3', 'LootRandomizer', NULL, 'Ascended Power'),
+                (901, 'records/skills/itemskillsgdx3/skillmodifiers/ascended/a.dbr', 'gdx3', 'SkillModifier', NULL, 'Skill Power');
 
             INSERT INTO items(record_pk, name, rarity, item_class, item_level, required_level, is_mi) VALUES
                 (1, 'Alpha', 'Common', 'Sword', 1, 1, 0),
@@ -42,11 +44,50 @@ internal sealed class TestDatabase : IDisposable
             INSERT INTO affixes(record_pk, name, kind, rarity, item_level, required_level, jitter_percent) VALUES
                 (5, 'Balanced', 'prefix', 'Rare', 10, 10, 10),
                 (6, 'Savage', 'suffix', 'Magical', 20, 20, 5);
+
+            INSERT INTO affix_item_classes(item_class, affix_pk) VALUES
+                ('Mace', 5),
+                ('Sword', 6);
+
+            INSERT INTO ascended_affixes(record_pk) VALUES (900);
+
+            INSERT INTO ascended_affix_categories(affix_pk, category, group_name) VALUES
+                (900, 'oneHandMelee', 'affix');
+
+            INSERT INTO ascended_skill_modifiers(affix_pk, modifier_pk) VALUES
+                (900, 901);
             """);
         _execute(connection, GdCli.Database.DatabaseSchema.CreateIndexesSql);
+        _execute(connection, GdCli.Database.DatabaseSchema.CreateReferenceIndexesSql);
     }
 
     public string Path { get; }
+
+    public void Execute(string sql)
+    {
+        var connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = Path,
+            Pooling = false
+        }.ToString();
+        using var connection = new SqliteConnection(connectionString);
+        connection.Open();
+        _execute(connection, sql);
+    }
+
+    public void Execute(Action<SqliteConnection, SqliteTransaction> action)
+    {
+        var connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = Path,
+            Pooling = false
+        }.ToString();
+        using var connection = new SqliteConnection(connectionString);
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+        action(connection, transaction);
+        transaction.Commit();
+    }
 
     public void Dispose()
     {
