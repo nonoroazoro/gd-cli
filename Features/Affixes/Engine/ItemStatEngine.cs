@@ -321,6 +321,10 @@ internal static class ItemStatEngine
         // weapon base damage: 0 draws, shown at base range.
         if (field.StartsWith("offensiveBase", StringComparison.Ordinal) && (field.EndsWith("Min", StringComparison.Ordinal) || field.EndsWith("Max", StringComparison.Ordinal))) return true;
         if (_fixedBlockFields.Contains(field)) return true;
+        // Resistance caps are fixed values and consume no random draw.
+        if (field.StartsWith("defensive", StringComparison.Ordinal) &&
+            field.EndsWith("MaxResist", StringComparison.Ordinal))
+            return true;
         // offensiveSlow*DurationMin: fixed (0 draws), same as the retaliation Dur block's DurationMin.
         if (field.StartsWith("offensiveSlow", StringComparison.Ordinal) && field.EndsWith("DurationMin", StringComparison.Ordinal)) return true;
         // offensive{X}RatioMin (e.g. offensivePierceRatioMin -> "100% Armor Piercing"): fixed, 0 draws.
@@ -622,7 +626,7 @@ internal static class ItemStatEngine
                             sourceText.TryGetValue(outputTypeField, out var outputType);
                             if (string.IsNullOrEmpty(inputType) || value == 0.0) return; // invalid: destroyed, no draw
                             DrawEarlySkillFields();
-                            var key = (inputType!, outputType ?? "");
+                            var key = (inputType, outputType ?? "");
                             if (!conversionTotals.ContainsKey(key)) conversionOrder.Add(key);
                             conversionTotals[key] = conversionTotals.GetValueOrDefault(key) + StatJitter.ApplyConversionRoll(value, jitterPercent, rollSource);
                         }

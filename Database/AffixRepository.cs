@@ -15,6 +15,9 @@ internal sealed class AffixRepository
     private const string _filterSql = """
         WHERE (@rarity IS NULL OR A.rarity = @rarity COLLATE NOCASE)
           AND (@kind IS NULL OR A.kind = @kind COLLATE NOCASE)
+          AND (@class IS NULL OR EXISTS (
+                  SELECT 1 FROM affix_item_classes C
+                  WHERE C.affix_pk = A.record_pk AND C.item_class = @class COLLATE NOCASE))
           AND (@minimum IS NULL OR A.required_level >= @minimum)
           AND (@maximum IS NULL OR A.required_level <= @maximum)
         """;
@@ -53,6 +56,7 @@ internal sealed class AffixRepository
         command.CommandText = sql;
         command.Parameters.AddWithValue("@rarity", SqliteQuery.Value(filter.Rarity));
         command.Parameters.AddWithValue("@kind", SqliteQuery.Value(filter.Kind));
+        command.Parameters.AddWithValue("@class", SqliteQuery.Value(filter.ItemClass));
         command.Parameters.AddWithValue("@minimum", SqliteQuery.Value(filter.MinimumLevel));
         command.Parameters.AddWithValue("@maximum", SqliteQuery.Value(filter.MaximumLevel));
         return command;

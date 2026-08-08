@@ -18,6 +18,10 @@ internal sealed class DatabaseInfo
 
     public required long AffixCount { get; init; }
 
+    public required long AscendedAffixCount { get; init; }
+
+    public required long AscendedSkillModifierCount { get; init; }
+
     public required long RecordCount { get; init; }
 
     public required long LevelCount { get; init; }
@@ -25,6 +29,10 @@ internal sealed class DatabaseInfo
     public required long PlacementCount { get; init; }
 
     public required long MiCount { get; init; }
+
+    public required long MiRecordCount { get; init; }
+
+    public required long MiNameTagCount { get; init; }
 
     public required string GameLanguage { get; init; }
 
@@ -35,4 +43,6 @@ internal sealed class DatabaseInfo
     public required IReadOnlyList<string> ItemClasses { get; init; }
 
     public required IReadOnlyList<string> AffixKinds { get; init; }
+
+    public required IReadOnlyList<string> AscendedCategories { get; init; }
 }

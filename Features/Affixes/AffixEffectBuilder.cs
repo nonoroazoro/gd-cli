@@ -5,12 +5,8 @@ using GdCli.Features.Affixes.Formatting;
 
 namespace GdCli.Features.Affixes;
 
-internal sealed class AffixEffectBuilder
+internal sealed partial class AffixEffectBuilder
 {
-    private static readonly Regex _numberPattern = new(
-        @"(?<![A-Za-z])[-+]?\d+(?:\.\d+)?",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
     private readonly StatFormatter _formatter;
 
     public AffixEffectBuilder(IStatTagProvider statTags)
@@ -21,6 +17,28 @@ internal sealed class AffixEffectBuilder
     public void Apply(AffixRecord affix)
     {
         var stats = affix.Stats ?? throw new InvalidOperationException("Affix stats must be loaded before effect calculation.");
+        var result = _calculate(stats, affix.Kind.Equals("prefix", StringComparison.OrdinalIgnoreCase));
+        affix.JitterPercent = result.JitterPercent;
+        affix.UnmodeledFields = result.UnmodeledFields;
+        affix.Effects = result.Effects;
+    }
+
+    public void Apply(AscendedAffixRecord affix)
+    {
+        var stats = affix.Stats ?? throw new InvalidOperationException(
+            "Ascended affix stats must be loaded before effect calculation.");
+        var result = _calculate(stats, true);
+        affix.UnmodeledFields = result.UnmodeledFields;
+        affix.Effects = result.Effects;
+    }
+
+    private (
+        double JitterPercent,
+        IReadOnlyList<StatEffect> Effects,
+        IReadOnlyList<string> UnmodeledFields) _calculate(
+            IReadOnlyList<RawStat> stats,
+            bool usePrefixStore)
+    {
         var input = stats
             .Where(stat => !string.IsNullOrWhiteSpace(stat.Field))
             .GroupBy(stat => stat.Field, StringComparer.Ordinal)
@@ -28,7 +46,7 @@ internal sealed class AffixEffectBuilder
             .Select(stat => new StatInput(stat.Field, stat.TextValue ?? string.Empty, stat.Value))
             .ToList();
 
-        var range = affix.Kind.Equals("prefix", StringComparison.OrdinalIgnoreCase)
+        var range = usePrefixStore
             ? ItemStatEngine.ComputeRange([], prefixStats: input)
             : ItemStatEngine.ComputeRange([], suffixStats: input);
 
@@ -40,14 +58,14 @@ internal sealed class AffixEffectBuilder
             stat.Maximum = maximum.TryGetValue(stat.Field, out var maximumValue) ? maximumValue : stat.Value;
         }
 
-        affix.JitterPercent = stats
-            .FirstOrDefault(stat => stat.Field == "lootRandomizerJitter")?.Value ?? affix.JitterPercent;
-        affix.UnmodeledFields = range.Minimum.UnmodeledFields
+        var jitterPercent = stats
+            .FirstOrDefault(stat => stat.Field == "lootRandomizerJitter")?.Value ?? 0;
+        var unmodeledFields = range.Minimum.UnmodeledFields
             .Concat(range.Maximum.UnmodeledFields)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToList();
-        affix.Effects = _buildEffects(stats, minimum, maximum);
+        return (jitterPercent, _buildEffects(stats, minimum, maximum), unmodeledFields);
     }
 
     private List<StatEffect> _buildEffects(
@@ -73,12 +91,10 @@ internal sealed class AffixEffectBuilder
         var minimumText = _formatter.ProcessStats(_buildStats(raw, minimum), type)
             .Select(stat => stat.ToString())
             .Where(text => !string.IsNullOrWhiteSpace(text))
-            .Cast<string>()
             .ToList();
         var maximumBuckets = _formatter.ProcessStats(_buildStats(raw, maximum), type)
             .Select(stat => stat.ToString())
             .Where(text => !string.IsNullOrWhiteSpace(text))
-            .Cast<string>()
             .GroupBy(_normalize)
             .ToDictionary(
                 group => group.Key,
@@ -148,6 +164,9 @@ internal sealed class AffixEffectBuilder
 
     private static string _normalize(string text)
     {
-        return _numberPattern.Replace(text, "#").Trim();
+        return _numberPattern().Replace(text, "#").Trim();
     }
+
+    [GeneratedRegex(@"(?<![A-Za-z])[-+]?\d+(?:\.\d+)?", RegexOptions.CultureInvariant)]
+    private static partial Regex _numberPattern();
 }

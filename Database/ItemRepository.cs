@@ -7,7 +7,7 @@ namespace GdCli.Database;
 internal sealed class ItemRepository
 {
     private const string _selectSql = """
-        SELECT R.record_id, I.name, I.rarity, I.item_class, I.item_level, I.required_level, I.is_mi
+        SELECT R.record_id, I.name, NULLIF(R.name_tag, ''), I.rarity, I.item_class, I.item_level, I.required_level, I.is_mi
         FROM items I
         JOIN records R ON R.id = I.record_pk
         """;
@@ -17,6 +17,7 @@ internal sealed class ItemRepository
           AND (@class IS NULL OR I.item_class = @class COLLATE NOCASE)
           AND (@minimum IS NULL OR I.required_level >= @minimum)
           AND (@maximum IS NULL OR I.required_level <= @maximum)
+          AND (@mi IS NULL OR I.is_mi = @mi)
         """;
 
     private readonly SqliteConnection _connection;
@@ -69,6 +70,7 @@ internal sealed class ItemRepository
         command.Parameters.AddWithValue("@class", SqliteQuery.Value(filter.ItemClass));
         command.Parameters.AddWithValue("@minimum", SqliteQuery.Value(filter.MinimumLevel));
         command.Parameters.AddWithValue("@maximum", SqliteQuery.Value(filter.MaximumLevel));
+        command.Parameters.AddWithValue("@mi", SqliteQuery.Value(filter.IsMi));
         return command;
     }
 
@@ -95,11 +97,12 @@ internal sealed class ItemRepository
             {
                 RecordId = reader.GetString(0),
                 Name = reader.GetString(1),
-                Rarity = reader.GetString(2),
-                ItemClass = reader.GetString(3),
-                ItemLevel = reader.GetDouble(4),
-                RequiredLevel = reader.GetDouble(5),
-                IsMi = reader.GetBoolean(6)
+                NameTag = reader.IsDBNull(2) ? null : reader.GetString(2),
+                Rarity = reader.GetString(3),
+                ItemClass = reader.GetString(4),
+                ItemLevel = reader.GetDouble(5),
+                RequiredLevel = reader.GetDouble(6),
+                IsMi = reader.GetBoolean(7)
             });
         }
         return result;

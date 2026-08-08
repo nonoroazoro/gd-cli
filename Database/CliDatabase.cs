@@ -24,7 +24,9 @@ internal sealed class CliDatabase : IDisposable
             _connection.Open();
             _validateSchema();
             Items = new ItemRepository(_connection);
+            ItemFamilies = new ItemFamilyRepository(_connection);
             Affixes = new AffixRepository(_connection);
+            AscendedAffixes = new AscendedAffixRepository(_connection);
             Search = new SearchRepository(_connection);
         }
         catch (SqliteException exception)
@@ -43,13 +45,18 @@ internal sealed class CliDatabase : IDisposable
 
     public ItemRepository Items { get; }
 
+    public ItemFamilyRepository ItemFamilies { get; }
+
     public AffixRepository Affixes { get; }
+
+    public AscendedAffixRepository AscendedAffixes { get; }
 
     public SearchRepository Search { get; }
 
     public DatabaseInfo GetInfo()
     {
         var file = new FileInfo(Path);
+        var miRecordCount = _scalar<long>("SELECT COUNT(*) FROM items WHERE is_mi = 1");
         return new DatabaseInfo
         {
             Database = Path,
@@ -60,14 +67,25 @@ internal sealed class CliDatabase : IDisposable
             RecordCount = _scalar<long>("SELECT COUNT(*) FROM records"),
             ItemCount = _scalar<long>("SELECT COUNT(*) FROM items"),
             AffixCount = _scalar<long>("SELECT COUNT(*) FROM affixes"),
+            AscendedAffixCount = _scalar<long>("SELECT COUNT(*) FROM ascended_affixes"),
+            AscendedSkillModifierCount = _scalar<long>(
+                "SELECT COUNT(DISTINCT modifier_pk) FROM ascended_skill_modifiers"),
             LevelCount = _scalar<long>("SELECT COUNT(*) FROM levels"),
             PlacementCount = _scalar<long>("SELECT COUNT(*) FROM placements"),
-            MiCount = _scalar<long>("SELECT COUNT(*) FROM items WHERE is_mi = 1"),
+            MiCount = miRecordCount,
+            MiRecordCount = miRecordCount,
+            MiNameTagCount = _scalar<long>("""
+                SELECT COUNT(DISTINCT R.name_tag)
+                FROM items I
+                JOIN records R ON R.id = I.record_pk
+                WHERE I.is_mi = 1 AND R.name_tag IS NOT NULL AND R.name_tag <> ''
+                """),
             GameLanguage = _metadata("gameLanguage"),
             GameDirectory = _metadata("gameDirectory"),
             Rarities = GetRarities(),
             ItemClasses = GetItemClasses(),
-            AffixKinds = GetAffixKinds()
+            AffixKinds = GetAffixKinds(),
+            AscendedCategories = GetAscendedCategories()
         };
     }
 
@@ -86,13 +104,18 @@ internal sealed class CliDatabase : IDisposable
         return _distinct("SELECT kind AS value FROM affixes");
     }
 
+    public IReadOnlyList<string> GetAscendedCategories()
+    {
+        return _distinct("SELECT category AS value FROM ascended_affix_categories");
+    }
+
     public Dictionary<string, List<RawStat>> LoadStats(IEnumerable<string> records)
     {
         var result = new Dictionary<string, List<RawStat>>(StringComparer.OrdinalIgnoreCase);
         foreach (var chunk in records.Distinct(StringComparer.OrdinalIgnoreCase).Chunk(400))
         {
             using var command = _connection.CreateCommand();
-            var parameters = _addValues(command, "record", chunk);
+            var parameters = SqliteQuery.AddValues(command, "record", chunk);
             command.CommandText = $"""
                 SELECT R.record_id, N.name, F.numeric_value, F.text_value
                 FROM item_fields F
@@ -138,7 +161,7 @@ internal sealed class CliDatabase : IDisposable
         foreach (var chunk in itemRecords.Distinct(StringComparer.OrdinalIgnoreCase).Chunk(400))
         {
             using var command = _connection.CreateCommand();
-            var parameters = _addValues(command, "item", chunk);
+            var parameters = SqliteQuery.AddValues(command, "item", chunk);
             command.CommandText = $"""
                 SELECT I.record_id, M.record_id, M.display_name
                 FROM monster_drops MD
@@ -200,7 +223,7 @@ internal sealed class CliDatabase : IDisposable
         return result;
     }
 
-    public IReadOnlyList<DropCondition> LoadDropConditions(string recordId, string referenceField)
+    public IReadOnlyList<DropCondition> LoadDropConditions(string recordId)
     {
         using var command = _connection.CreateCommand();
         command.CommandText = """
@@ -215,16 +238,12 @@ internal sealed class CliDatabase : IDisposable
         using var reader = command.ExecuteReader();
         var result = new List<DropCondition>();
         while (reader.Read())
-        {
-            var field = reader.GetString(0);
-            if (_isRelatedCondition(referenceField, field))
-                result.Add(new DropCondition
-                {
-                    Field = field,
-                    Value = reader.GetDouble(1),
-                    TextValue = reader.IsDBNull(2) ? null : reader.GetString(2)
-                });
-        }
+            result.Add(new DropCondition
+            {
+                Field = reader.GetString(0),
+                Value = reader.GetDouble(1),
+                TextValue = reader.IsDBNull(2) ? null : reader.GetString(2)
+            });
         return result;
     }
 
@@ -267,7 +286,7 @@ internal sealed class CliDatabase : IDisposable
         var version = _scalar<long>("PRAGMA user_version");
         if (version != DatabaseSchema.Version)
             throw new IncompatibleDatabaseException($"CLI database schema {version} is incompatible with required schema {DatabaseSchema.Version}. Run init again.");
-        foreach (var table in new[] { "records", "field_names", "item_fields", "record_references", "drop_conditions", "items", "affixes", "levels", "placements", "monster_drops" })
+        foreach (var table in DatabaseSchema.RequiredTables)
         {
             using var command = _connection.CreateCommand();
             command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = @name";
@@ -304,48 +323,6 @@ internal sealed class CliDatabase : IDisposable
         if (value == null || value == DBNull.Value)
             throw new IncompatibleDatabaseException($"The database returned no value for: {sql}");
         return (T)Convert.ChangeType(value, typeof(T), CultureInfo.InvariantCulture);
-    }
-
-    private static string _addValues(SqliteCommand command, string prefix, string[] values)
-    {
-        var names = new string[values.Length];
-        for (var index = 0; index < values.Length; index++)
-        {
-            names[index] = $"@{prefix}{index}";
-            command.Parameters.AddWithValue(names[index], values[index]);
-        }
-        return string.Join(',', names);
-    }
-
-    private static bool _isRelatedCondition(string referenceField, string conditionField)
-    {
-        if (conditionField is "forceHighestLevel" or "minItemLevelEquation" or "maxItemLevelEquation" or "chanceToRun")
-            return true;
-        var slot = _trailingDigits(referenceField);
-        if (referenceField.StartsWith("lootName", StringComparison.OrdinalIgnoreCase))
-            return conditionField.Equals($"lootWeight{slot}", StringComparison.OrdinalIgnoreCase) ||
-                   conditionField.Equals($"lootChance{slot}", StringComparison.OrdinalIgnoreCase);
-        if (referenceField.StartsWith("name", StringComparison.OrdinalIgnoreCase))
-            return conditionField.Equals($"weight{slot}", StringComparison.OrdinalIgnoreCase) ||
-                   conditionField.Equals($"levelVarianceEquation{slot}", StringComparison.OrdinalIgnoreCase);
-        if (referenceField.StartsWith("pool", StringComparison.OrdinalIgnoreCase))
-            return conditionField.Equals($"weight{slot}", StringComparison.OrdinalIgnoreCase);
-        var itemIndex = referenceField.LastIndexOf("Item", StringComparison.OrdinalIgnoreCase);
-        if (referenceField.StartsWith("loot", StringComparison.OrdinalIgnoreCase) && itemIndex > 4)
-        {
-            var equipmentGroup = referenceField[4..itemIndex];
-            return conditionField.Equals($"chanceToEquip{equipmentGroup}", StringComparison.OrdinalIgnoreCase) ||
-                   conditionField.Equals($"chanceToEquip{equipmentGroup}Item{slot}", StringComparison.OrdinalIgnoreCase);
-        }
-        return false;
-    }
-
-    private static string _trailingDigits(string value)
-    {
-        var start = value.Length;
-        while (start > 0 && char.IsDigit(value[start - 1]))
-            start--;
-        return value[start..];
     }
 
 }

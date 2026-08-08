@@ -113,8 +113,8 @@ internal sealed class EnglishStatTags : IStatTagProvider
             {"characterHuntingDexterityReqReduction", "-{0}% Cunning Req. for Ranged Weapons"},
             {"characterStrength", "+{0} Physique"},
             {"characterStrengthModifier", "+{0}% Physique"},
-            {"characterTotalSpeedModifier", "+{0}% Total Speed"}, // Deprecated?
-            {"skillProjectileSpeedModifier", "+{0}% Increase in Projectile Speed"}, // Deprecated?
+            {"characterTotalSpeedModifier", "+{0}% Total Speed"},
+            {"skillProjectileSpeedModifier", "+{0}% Increase in Projectile Speed"},
             {"defensiveAbsorptionModifier", " Increases Armor Absorption by {0}%"},
             {"defensiveAllMaxResist", "+{0} Maximum All Resistances"},
             {"skillLifeBonus", "{0} Health Restored"},

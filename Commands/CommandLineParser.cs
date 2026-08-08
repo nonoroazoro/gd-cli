@@ -73,6 +73,14 @@ internal static class CommandLineParser
                     options.Kind = _normalizeAll(_next(args, ref index, value));
                     options.KindSpecified = true;
                     break;
+                case "--category":
+                    options.AscendedCategory = _normalizeAll(_next(args, ref index, value));
+                    options.AscendedCategorySpecified = true;
+                    break;
+                case "--mi":
+                    options.IsMi = _parseBoolean(_next(args, ref index, value), value);
+                    options.MiSpecified = true;
+                    break;
                 case "--min-level":
                     options.MinimumLevel = _parseNonNegative(_next(args, ref index, value), value);
                     break;
@@ -113,6 +121,10 @@ internal static class CommandLineParser
             throw new CommandLineException("--type requires a non-empty value.");
         if (options.KindSpecified && options.Kind != null && string.IsNullOrWhiteSpace(options.Kind))
             throw new CommandLineException("--kind requires a non-empty value.");
+        if (options.AscendedCategorySpecified &&
+            options.AscendedCategory != null &&
+            string.IsNullOrWhiteSpace(options.AscendedCategory))
+            throw new CommandLineException("--category requires a non-empty value.");
         options.CommandPath = commandPath;
         if (options.HelpRequested)
             return options;
@@ -130,6 +142,7 @@ internal static class CommandLineParser
         {
             case "item":
             case "affix":
+            case "ascended-affix":
                 if (positionals.Count != 1)
                     throw new CommandLineException($"{options.Command} requires exactly one record ID.");
                 options.RecordId = positionals[0];
@@ -182,5 +195,12 @@ internal static class CommandLineParser
         if (result == 0)
             throw new CommandLineException($"{option} requires an integer greater than zero.");
         return result;
+    }
+
+    private static bool _parseBoolean(string value, string option)
+    {
+        if (bool.TryParse(value, out var result))
+            return result;
+        throw new CommandLineException($"{option} must be true or false.");
     }
 }

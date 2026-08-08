@@ -22,6 +22,12 @@ internal sealed class InitializationResult
 
     public required long Affixes { get; init; }
 
+    public required long AscendedAffixes { get; init; }
+
+    public required long AscendedSkillModifiers { get; init; }
+
+    public required long AffixCompatibilityRelations { get; init; }
+
     public required long Levels { get; init; }
 
     public required long Placements { get; init; }

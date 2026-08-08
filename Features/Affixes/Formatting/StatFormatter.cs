@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace GdCli.Features.Affixes.Formatting;
 
-internal sealed class StatFormatter
+internal sealed partial class StatFormatter
 {
     private readonly IStatTagProvider _tags;
 
@@ -55,8 +55,6 @@ internal sealed class StatFormatter
     /// <returns>Class name</returns>
     private string _resolveClassName(string? initialTag)
     {
-        const string namePattern = @"\[ms\](.*)\[fs\](.*)";
-
         if (string.IsNullOrEmpty(initialTag))
             return string.Empty;
 
@@ -65,11 +63,14 @@ internal sealed class StatFormatter
         // Probably a custom class. Try to get via tagSkillClassName.
         if (string.IsNullOrEmpty(className))
         {
-            className = _tags.GetTag(initialTag.Replace("class", "tagSkillClassName"));
+            className = _tags.GetTag(initialTag.Replace(
+                "class",
+                "tagSkillClassName",
+                StringComparison.Ordinal));
         }
 
-        return Regex.IsMatch(className, namePattern)
-            ? Regex.Replace(className, namePattern, "$1/$2")
+        return _classNamePattern().IsMatch(className)
+            ? _classNamePattern().Replace(className, "$1/$2")
             : className;
     }
 
@@ -491,7 +492,7 @@ internal sealed class StatFormatter
             }
             else
             {
-                textBuilder.Append(damageType.Contains("Modifier")
+                textBuilder.Append(damageType.Contains("Modifier", StringComparison.Ordinal)
                     ? _tags.GetTag("customtag_damage_13%")
                     : _tags.GetTag("customtag_damage_13"));
             }
@@ -716,4 +717,7 @@ internal sealed class StatFormatter
 
         return result;
     }
+
+    [GeneratedRegex(@"\[ms\](.*)\[fs\](.*)", RegexOptions.CultureInvariant)]
+    private static partial Regex _classNamePattern();
 }

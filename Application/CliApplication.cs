@@ -27,8 +27,13 @@ internal sealed class CliApplication
             options = CommandLineParser.Parse(args);
             if (!options.HelpRequested)
                 CommandLineValidator.Validate(options);
+            JsonOutput.ValidateQuery(options.OutputQuery);
         }
         catch (CommandLineException exception)
+        {
+            return _writeError(ExitCode.InvalidArguments, exception.Message);
+        }
+        catch (OutputQueryException exception)
         {
             return _writeError(ExitCode.InvalidArguments, exception.Message);
         }
@@ -81,7 +86,7 @@ internal sealed class CliApplication
         {
             try
             {
-                var result = new DatabaseInitializer().Initialize(
+                var result = DatabaseInitializer.Initialize(
                     options.GameDirectory ?? string.Empty,
                     options.GameLanguage);
                 JsonOutput.Write(_standardOutput, result, options.OutputQuery);
@@ -143,6 +148,9 @@ internal sealed class CliApplication
             case "items":
                 _writeItems(database, options);
                 return (int)ExitCode.Success;
+            case "item-families":
+                _writeItemFamilies(database, options);
+                return (int)ExitCode.Success;
             case "item":
                 return _writeItem(database, options);
             case "affixes":
@@ -150,6 +158,11 @@ internal sealed class CliApplication
                 return (int)ExitCode.Success;
             case "affix":
                 return _writeAffix(database, options);
+            case "ascended-affixes":
+                _writeAscendedAffixes(database, options);
+                return (int)ExitCode.Success;
+            case "ascended-affix":
+                return _writeAscendedAffix(database, options);
             case "search":
                 _writeSearch(database, options);
                 return (int)ExitCode.Success;
@@ -168,7 +181,8 @@ internal sealed class CliApplication
             Database = database.Path,
             Rarities = info.Rarities,
             ItemClasses = info.ItemClasses,
-            AffixKinds = info.AffixKinds
+            AffixKinds = info.AffixKinds,
+            AscendedCategories = info.AscendedCategories
         }, options.OutputQuery);
     }
 
@@ -178,11 +192,20 @@ internal sealed class CliApplication
             options.Rarity,
             options.ItemClass,
             options.MinimumLevel,
-            options.MaximumLevel);
+            options.MaximumLevel,
+            options.IsMi);
         var total = database.Items.Count(filter);
         var page = database.Items.Load(filter, options.Offset, options.All ? null : options.Limit);
         _populateItemDetails(database, page, !options.NoStats);
         _writeEnvelope(database, options, "items", total, page);
+    }
+
+    private void _writeItemFamilies(CliDatabase database, CommandLineOptions options)
+    {
+        var filter = new ItemFamilyFilter(options.IsMi);
+        var total = database.ItemFamilies.Count(filter);
+        var page = database.ItemFamilies.Load(filter, options.Offset, options.All ? null : options.Limit);
+        _writeEnvelope(database, options, "item-families", total, page);
     }
 
     private int _writeItem(CliDatabase database, CommandLineOptions options)
@@ -201,6 +224,7 @@ internal sealed class CliApplication
         var filter = new AffixFilter(
             options.Rarity,
             options.Kind,
+            options.ItemClass,
             options.MinimumLevel,
             options.MaximumLevel);
         var total = database.Affixes.Count(filter);
@@ -219,6 +243,35 @@ internal sealed class CliApplication
         if (!options.NoStats)
             _populateAffixDetails(database, [affix]);
         _writeEnvelope(database, options, "affix", 1, [affix], 0, 1);
+        return (int)ExitCode.Success;
+    }
+
+    private void _writeAscendedAffixes(CliDatabase database, CommandLineOptions options)
+    {
+        var filter = new AscendedAffixFilter(options.AscendedCategory);
+        var total = database.AscendedAffixes.Count(filter);
+        var page = database.AscendedAffixes.Load(
+            filter,
+            options.Offset,
+            options.All ? null : options.Limit);
+        if (!options.NoStats)
+            _populateAscendedAffixDetails(database, page);
+        _writeEnvelope(database, options, "ascended-affixes", total, page);
+    }
+
+    private int _writeAscendedAffix(CliDatabase database, CommandLineOptions options)
+    {
+        var affix = database.AscendedAffixes.FindByRecordId(options.RecordId ?? string.Empty);
+        if (affix == null)
+        {
+            return _writeError(
+                ExitCode.RecordNotFound,
+                $"Ascended affix record was not found: {options.RecordId}");
+        }
+
+        if (!options.NoStats)
+            _populateAscendedAffixDetails(database, [affix]);
+        _writeEnvelope(database, options, "ascended-affix", 1, [affix], 0, 1);
         return (int)ExitCode.Success;
     }
 
@@ -250,7 +303,7 @@ internal sealed class CliApplication
 
         var page = database.Items.LoadMatches(query, exact, true, options.Offset, options.All ? null : options.Limit);
         var resolver = new DropResolver(database);
-        var data = page.Select(resolver.Resolve).ToList();
+        var data = resolver.Resolve(page);
         _writeEnvelope(database, options, "drops", total, data);
         return (int)ExitCode.Success;
     }
@@ -287,6 +340,30 @@ internal sealed class CliApplication
         }
     }
 
+    private static void _populateAscendedAffixDetails(
+        CliDatabase database,
+        List<AscendedAffixRecord> affixes)
+    {
+        if (affixes.Count == 0)
+            return;
+
+        var stats = database.LoadStats(affixes.Select(affix => affix.RecordId));
+        var modifiers = database.AscendedAffixes.LoadSkillModifiers(
+            affixes.Select(affix => affix.RecordId));
+        var modifierStats = database.LoadStats(
+            modifiers.Values.SelectMany(value => value).Select(modifier => modifier.RecordId));
+        var statTags = new EnglishStatTags(database.LoadTags());
+        var effectBuilder = new AffixEffectBuilder(statTags);
+        foreach (var affix in affixes)
+        {
+            affix.Stats = stats.GetValueOrDefault(affix.RecordId) ?? [];
+            affix.SkillModifiers = modifiers.GetValueOrDefault(affix.RecordId) ?? [];
+            foreach (var modifier in affix.SkillModifiers)
+                modifier.Stats = modifierStats.GetValueOrDefault(modifier.RecordId) ?? [];
+            effectBuilder.Apply(affix);
+        }
+    }
+
     private void _writeEnvelope<T>(
         CliDatabase database,
         CommandLineOptions options,
@@ -298,8 +375,8 @@ internal sealed class CliApplication
     {
         var actualOffset = offset ?? options.Offset;
         var actualLimit = limit ?? (options.All ? null : options.Limit);
-        var nextOffset = actualOffset + data.Count;
-        var hasMore = nextOffset < total;
+        var endOffset = (long)actualOffset + data.Count;
+        var hasMore = endOffset < total;
         JsonOutput.Write(_standardOutput, new QueryEnvelope<T>
         {
             Command = command,
@@ -309,7 +386,7 @@ internal sealed class CliApplication
             Offset = actualOffset,
             Limit = actualLimit,
             HasMore = hasMore,
-            NextOffset = hasMore ? nextOffset : null,
+            NextOffset = hasMore ? (int)endOffset : null,
             Data = data
         }, options.OutputQuery);
     }
@@ -364,6 +441,13 @@ internal sealed class CliApplication
             _validateFilter("--type", options.ItemClass, database.GetItemClasses());
         if (options.Kind != null)
             _validateFilter("--kind", options.Kind, database.GetAffixKinds());
+        if (options.AscendedCategory != null)
+        {
+            _validateFilter(
+                "--category",
+                options.AscendedCategory,
+                database.GetAscendedCategories());
+        }
     }
 
     private static void _validateFilter(string argument, string? value, IReadOnlyList<string> allowedValues)

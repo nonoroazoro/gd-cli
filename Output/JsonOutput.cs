@@ -38,4 +38,21 @@ internal static class JsonOutput
 
         writer.WriteLine(json);
     }
+
+    public static void ValidateQuery(string? query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return;
+
+        try
+        {
+            _ = new JmesPath().Parse(query);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            throw new OutputQueryException(
+                $"Invalid JMESPath query: {exception.Message}",
+                exception);
+        }
+    }
 }

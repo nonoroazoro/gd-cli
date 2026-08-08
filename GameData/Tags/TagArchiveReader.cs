@@ -16,7 +16,7 @@ internal static class TagArchiveReader
                 text = text[1..];
             foreach (var rawLine in text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n'))
             {
-                var separator = rawLine.IndexOf('=');
+                var separator = rawLine.IndexOf('=', StringComparison.Ordinal);
                 if (separator <= 0)
                     continue;
                 var tag = rawLine[..separator].Trim();

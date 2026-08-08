@@ -24,6 +24,14 @@ internal sealed class CommandLineOptions
 
     public bool KindSpecified { get; set; }
 
+    public string? AscendedCategory { get; set; }
+
+    public bool AscendedCategorySpecified { get; set; }
+
+    public bool? IsMi { get; set; }
+
+    public bool MiSpecified { get; set; }
+
     public int? MinimumLevel { get; set; }
 
     public int? MaximumLevel { get; set; }

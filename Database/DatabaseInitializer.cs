@@ -8,16 +8,9 @@ using Microsoft.Data.Sqlite;
 
 namespace GdCli.Database;
 
-internal sealed class DatabaseInitializer
+internal static class DatabaseInitializer
 {
-    private readonly Action<InitializationProgress>? _progress;
-
-    public DatabaseInitializer(Action<InitializationProgress>? progress = null)
-    {
-        _progress = progress;
-    }
-
-    public InitializationResult Initialize(string gameDirectory, string gameLanguage)
+    public static InitializationResult Initialize(string gameDirectory, string gameLanguage)
     {
         var install = GameInstall.Open(gameDirectory, gameLanguage);
         var targetPath = DatabasePaths.EnsureDirectory();
@@ -27,7 +20,7 @@ internal sealed class DatabaseInitializer
         return _readResult(targetPath, install);
     }
 
-    private void _build(string path, GameInstall install)
+    private static void _build(string path, GameInstall install)
     {
         var connectionString = new SqliteConnectionStringBuilder
         {
@@ -45,10 +38,11 @@ internal sealed class DatabaseInitializer
             _saveSources(connection, transaction, install);
             _importTags(connection, transaction, install);
             _importRecords(connection, transaction, install);
-            _buildDerivedRecords(connection, transaction);
-            _execute(connection, transaction, "CREATE INDEX references_target_idx ON record_references(target_pk)");
-            _buildMonsterDrops(connection, transaction);
-            _pruneDropData(connection, transaction);
+            GameRecordCatalogBuilder.Build(connection, transaction);
+            AffixCompatibilityBuilder.Build(connection, transaction);
+            AscendedAffixBuilder.Build(connection, transaction);
+            _execute(connection, transaction, DatabaseSchema.CreateReferenceIndexesSql);
+            MonsterDropBuilder.Build(connection, transaction);
             _importMaps(connection, transaction, install);
             transaction.Commit();
         }
@@ -61,7 +55,7 @@ internal sealed class DatabaseInitializer
             throw new GameDataException($"Generated database failed integrity_check: {result}");
     }
 
-    private void _importTags(SqliteConnection connection, SqliteTransaction transaction, GameInstall install)
+    private static void _importTags(SqliteConnection connection, SqliteTransaction transaction, GameInstall install)
     {
         var tags = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var source in install.Sources)
@@ -88,18 +82,15 @@ internal sealed class DatabaseInitializer
         command.CommandText = "INSERT INTO tags(tag, text) VALUES (@tag, @text)";
         var tagParameter = command.Parameters.Add("@tag", SqliteType.Text);
         var textParameter = command.Parameters.Add("@text", SqliteType.Text);
-        var current = 0;
         foreach (var entry in tags)
         {
             tagParameter.Value = entry.Key;
             textParameter.Value = entry.Value;
             command.ExecuteNonQuery();
-            current++;
         }
-        _report("tags", install.GameLanguage, current, current);
     }
 
-    private void _importRecords(SqliteConnection connection, SqliteTransaction transaction, GameInstall install)
+    private static void _importRecords(SqliteConnection connection, SqliteTransaction transaction, GameInstall install)
     {
         _execute(connection, transaction, """
             CREATE TEMP TABLE raw_references (
@@ -161,7 +152,6 @@ internal sealed class DatabaseInitializer
         foreach (var source in install.Sources)
         {
             using var archive = new ArzArchiveReader(source.ArzPath);
-            var current = 0;
             foreach (var record in archive.ReadRecords())
             {
                 var normalizedRecord = _normalizeRecord(record.RecordId);
@@ -204,11 +194,11 @@ internal sealed class DatabaseInitializer
                 deleteReferences.Parameters["@record"].Value = recordPk;
                 deleteReferences.ExecuteNonQuery();
 
-                var keepItemFields = _isItemFieldRecord(normalizedRecord);
+                var storeFields = _shouldStoreFields(normalizedRecord);
                 foreach (var field in record.Fields)
                 {
                     var fieldPk = _getFieldPk(field.Name, fieldNames, insertFieldName);
-                    if (keepItemFields)
+                    if (storeFields)
                     {
                         fieldRecord.Value = recordPk;
                         fieldName.Value = fieldPk;
@@ -235,11 +225,7 @@ internal sealed class DatabaseInitializer
                         insertReference.ExecuteNonQuery();
                     }
                 }
-                current++;
-                if (current % 5000 == 0)
-                    _report("records", source.Name, current, archive.Count);
             }
-            _report("records", source.Name, current, archive.Count);
         }
         _execute(connection, transaction, """
             INSERT INTO record_references(source_pk, field_pk, ordinal, target_pk)
@@ -250,186 +236,7 @@ internal sealed class DatabaseInitializer
             """);
     }
 
-    private static void _buildDerivedRecords(SqliteConnection connection, SqliteTransaction transaction)
-    {
-        _execute(connection, transaction, """
-            UPDATE records
-            SET display_name = COALESCE(
-                (SELECT T.text FROM tags T WHERE T.tag = records.name_tag),
-                (SELECT T.text FROM item_fields F
-                 JOIN field_names N ON N.id = F.field_pk
-                 JOIN tags T ON T.tag = F.text_value
-                 WHERE F.record_pk = records.id
-                   AND N.name IN ('itemNameTag', 'lootRandomizerName', 'description', 'skillDisplayName', 'artifactName')
-                 ORDER BY CASE N.name
-                     WHEN 'itemNameTag' THEN 1
-                     WHEN 'lootRandomizerName' THEN 2
-                     WHEN 'description' THEN 3
-                     WHEN 'skillDisplayName' THEN 4
-                     ELSE 5 END
-                 LIMIT 1),
-                NULLIF(name_tag, ''),
-                (SELECT F.text_value FROM item_fields F
-                 JOIN field_names N ON N.id = F.field_pk
-                 WHERE F.record_pk = records.id AND N.name = 'FileDescription' LIMIT 1),
-                record_id)
-            """);
-        _execute(connection, transaction, """
-            INSERT INTO items(record_pk, name, rarity, item_class, item_level, required_level)
-            SELECT
-                R.id,
-                R.display_name,
-                COALESCE((SELECT F.text_value FROM item_fields F JOIN field_names N ON N.id = F.field_pk
-                          WHERE F.record_pk = R.id AND N.name = 'itemClassification' LIMIT 1), ''),
-                COALESCE(R.class, ''),
-                COALESCE((SELECT F.numeric_value FROM item_fields F JOIN field_names N ON N.id = F.field_pk
-                          WHERE F.record_pk = R.id AND N.name = 'itemLevel' LIMIT 1), 0),
-                COALESCE((SELECT F.numeric_value FROM item_fields F JOIN field_names N ON N.id = F.field_pk
-                          WHERE F.record_pk = R.id AND N.name = 'levelRequirement' LIMIT 1), 0)
-            FROM records R
-            WHERE R.record_id LIKE 'records/items/%'
-              AND R.record_id NOT LIKE '%/loottables/%'
-              AND R.record_id NOT LIKE '%/lootaffixes/%'
-              AND (
-                  R.class LIKE 'Item%'
-                  OR R.template LIKE '%/item%.tpl'
-                  OR EXISTS (SELECT 1 FROM item_fields F JOIN field_names N ON N.id = F.field_pk
-                             WHERE F.record_pk = R.id AND N.name = 'itemNameTag')
-              )
-            """);
-        _execute(connection, transaction, """
-            INSERT INTO affixes(record_pk, name, kind, rarity, item_level, required_level, jitter_percent)
-            SELECT
-                R.id,
-                R.display_name,
-                CASE WHEN R.record_id LIKE '%/prefix/%' THEN 'prefix' ELSE 'suffix' END,
-                COALESCE((SELECT F.text_value FROM item_fields F JOIN field_names N ON N.id = F.field_pk
-                          WHERE F.record_pk = R.id AND N.name = 'itemClassification' LIMIT 1), ''),
-                COALESCE((SELECT F.numeric_value FROM item_fields F JOIN field_names N ON N.id = F.field_pk
-                          WHERE F.record_pk = R.id AND N.name = 'itemLevel' LIMIT 1), 0),
-                COALESCE((SELECT F.numeric_value FROM item_fields F JOIN field_names N ON N.id = F.field_pk
-                          WHERE F.record_pk = R.id AND N.name = 'levelRequirement' LIMIT 1), 0),
-                COALESCE((SELECT F.numeric_value FROM item_fields F JOIN field_names N ON N.id = F.field_pk
-                          WHERE F.record_pk = R.id AND N.name = 'lootRandomizerJitter' LIMIT 1), 0)
-            FROM records R
-            WHERE R.record_id LIKE '%/lootaffixes/prefix/%'
-               OR R.record_id LIKE '%/lootaffixes/suffix/%'
-            """);
-    }
-
-    private static void _buildMonsterDrops(SqliteConnection connection, SqliteTransaction transaction)
-    {
-        _execute(connection, transaction, """
-            WITH RECURSIVE DropGraph(item_pk, record_pk, depth) AS (
-                SELECT I.record_pk, I.record_pk, 0
-                FROM items I
-                JOIN records IR ON IR.id = I.record_pk
-                WHERE (
-                      IR.record_id LIKE 'records/items/gear%'
-                      OR IR.class LIKE 'Weapon%'
-                      OR IR.class LIKE 'Armor%'
-                  )
-                  AND I.rarity IN ('Rare', 'Epic', 'Legendary')
-                UNION
-                SELECT G.item_pk, RR.source_pk, G.depth + 1
-                FROM DropGraph G
-                JOIN record_references RR ON RR.target_pk = G.record_pk
-                JOIN records S ON S.id = RR.source_pk
-                JOIN field_names N ON N.id = RR.field_pk
-                WHERE G.depth < 2
-                  AND (
-                      (S.record_id LIKE 'records/items/loottables/%' AND N.name LIKE 'lootName%')
-                      OR (S.record_id LIKE 'records/creatures/%' AND N.name LIKE 'loot%Item%')
-                  )
-            )
-            INSERT OR IGNORE INTO monster_drops(item_pk, monster_pk)
-            SELECT G.item_pk, G.record_pk
-            FROM DropGraph G
-            JOIN records R ON R.id = G.record_pk
-            WHERE R.record_id LIKE 'records/creatures/%'
-              AND (R.class = 'Monster' OR R.template LIKE '%/monster%.tpl');
-
-            UPDATE items
-            SET is_mi = EXISTS (
-                SELECT 1
-                FROM monster_drops MD
-                WHERE MD.item_pk = items.record_pk
-            );
-            """);
-    }
-
-    private static void _pruneDropData(SqliteConnection connection, SqliteTransaction transaction)
-    {
-        _execute(connection, transaction, """
-            CREATE TEMP TABLE kept_edges (
-                source_pk INTEGER NOT NULL,
-                field_pk INTEGER NOT NULL,
-                ordinal INTEGER NOT NULL,
-                PRIMARY KEY (source_pk, field_pk, ordinal)
-            ) WITHOUT ROWID;
-
-            WITH RECURSIVE ItemRoutes(record_pk, depth) AS (
-                SELECT item_pk, 0 FROM monster_drops
-                UNION
-                SELECT RR.source_pk, R.depth + 1
-                FROM ItemRoutes R
-                JOIN record_references RR ON RR.target_pk = R.record_pk
-                JOIN records S ON S.id = RR.source_pk
-                JOIN field_names N ON N.id = RR.field_pk
-                WHERE R.depth < 2
-                  AND (
-                      (S.record_id LIKE 'records/items/loottables/%' AND N.name LIKE 'lootName%')
-                      OR (S.record_id LIKE 'records/creatures/%' AND N.name LIKE 'loot%Item%')
-                  )
-            )
-            INSERT OR IGNORE INTO kept_edges(source_pk, field_pk, ordinal)
-            SELECT RR.source_pk, RR.field_pk, RR.ordinal
-            FROM ItemRoutes R
-            JOIN record_references RR ON RR.target_pk = R.record_pk
-            JOIN records S ON S.id = RR.source_pk
-            JOIN field_names N ON N.id = RR.field_pk
-            WHERE R.depth < 2
-              AND (
-                  (S.record_id LIKE 'records/items/loottables/%' AND N.name LIKE 'lootName%')
-                  OR (S.record_id LIKE 'records/creatures/%' AND N.name LIKE 'loot%Item%')
-              );
-
-            WITH RECURSIVE LocationRoutes(record_pk, depth) AS (
-                SELECT monster_pk, 0 FROM monster_drops
-                UNION
-                SELECT RR.source_pk, R.depth + 1
-                FROM LocationRoutes R
-                JOIN record_references RR ON RR.target_pk = R.record_pk
-                JOIN records S ON S.id = RR.source_pk
-                WHERE R.depth < 6
-                  AND (S.record_id LIKE 'records/proxies/%' OR S.record_id LIKE 'records/creatures/%')
-            )
-            INSERT OR IGNORE INTO kept_edges(source_pk, field_pk, ordinal)
-            SELECT RR.source_pk, RR.field_pk, RR.ordinal
-            FROM LocationRoutes R
-            JOIN record_references RR ON RR.target_pk = R.record_pk
-            JOIN records S ON S.id = RR.source_pk
-            WHERE R.depth < 6
-              AND (S.record_id LIKE 'records/proxies/%' OR S.record_id LIKE 'records/creatures/%');
-
-            DELETE FROM record_references
-            WHERE NOT EXISTS (
-                SELECT 1 FROM kept_edges K
-                WHERE K.source_pk = record_references.source_pk
-                  AND K.field_pk = record_references.field_pk
-                  AND K.ordinal = record_references.ordinal
-            );
-
-            DELETE FROM drop_conditions
-            WHERE NOT EXISTS (
-                SELECT 1 FROM kept_edges K WHERE K.source_pk = drop_conditions.record_pk
-            );
-
-            DROP TABLE kept_edges;
-            """);
-    }
-
-    private void _importMaps(SqliteConnection connection, SqliteTransaction transaction, GameInstall install)
+    private static void _importMaps(SqliteConnection connection, SqliteTransaction transaction, GameInstall install)
     {
         var relevantRecords = _loadRelevantPlacementRecords(connection, transaction);
         using var insertLevel = _command(connection, transaction, """
@@ -459,12 +266,14 @@ internal sealed class DatabaseInitializer
             .OrderByDescending(candidate => candidate.Priority)
             .FirstOrDefault()
             ?? throw new GameDataException("No Levels.arc was found in the game data sources.");
-        using (var archive = new ArcArchive(source.LevelsPath!))
+        var levelsPath = source.LevelsPath
+            ?? throw new GameDataException("The selected game data source has no Levels.arc path.");
+        using (var archive = new ArcArchive(levelsPath))
         {
             var mapEntry = archive.Entries.FirstOrDefault(entry => entry.Path.EndsWith("world001.map", StringComparison.OrdinalIgnoreCase))
-                ?? throw new GameDataException($"world001.map was not found in {source.LevelsPath}");
+                ?? throw new GameDataException($"world001.map was not found in {levelsPath}");
             using var mapStream = archive.OpenEntry(mapEntry.Path);
-            using var map = new WorldMapReader(mapStream, $"{source.LevelsPath}::{mapEntry.Path}", true);
+            using var map = new WorldMapReader(mapStream, $"{levelsPath}::{mapEntry.Path}", true);
             var levelIds = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
             foreach (var level in map.Levels)
             {
@@ -477,7 +286,6 @@ internal sealed class DatabaseInitializer
                 levelIds[level.Path] = Convert.ToInt64(insertLevel.ExecuteScalar(), CultureInfo.InvariantCulture);
             }
 
-            var placements = 0;
             foreach (var placement in map.ReadPlacements(relevantRecords.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase)))
             {
                 if (!levelIds.TryGetValue(placement.LevelPath, out var levelPk) ||
@@ -490,10 +298,7 @@ internal sealed class DatabaseInitializer
                 worldY.Value = placement.WorldY;
                 worldZ.Value = placement.WorldZ;
                 insertPlacement.ExecuteNonQuery();
-                placements++;
             }
-            _report("levels", source.Name, map.Levels.Count, map.Levels.Count);
-            _report("placements", source.Name, placements, placements);
         }
     }
 
@@ -582,6 +387,11 @@ internal sealed class DatabaseInitializer
             DropConditions = _scalar(connection, "SELECT COUNT(*) FROM drop_conditions"),
             Items = _scalar(connection, "SELECT COUNT(*) FROM items"),
             Affixes = _scalar(connection, "SELECT COUNT(*) FROM affixes"),
+            AscendedAffixes = _scalar(connection, "SELECT COUNT(*) FROM ascended_affixes"),
+            AscendedSkillModifiers = _scalar(
+                connection,
+                "SELECT COUNT(DISTINCT modifier_pk) FROM ascended_skill_modifiers"),
+            AffixCompatibilityRelations = _scalar(connection, "SELECT COUNT(*) FROM affix_item_classes"),
             Levels = _scalar(connection, "SELECT COUNT(*) FROM levels"),
             Placements = _scalar(connection, "SELECT COUNT(*) FROM placements"),
             MonsterDrops = _scalar(connection, "SELECT COUNT(*) FROM monster_drops"),
@@ -636,10 +446,11 @@ internal sealed class DatabaseInitializer
         return fieldPk;
     }
 
-    private static bool _isItemFieldRecord(string recordId)
+    private static bool _shouldStoreFields(string recordId)
     {
-        return recordId.StartsWith("records/items/", StringComparison.OrdinalIgnoreCase) &&
-               !recordId.StartsWith("records/items/loottables/", StringComparison.OrdinalIgnoreCase);
+        return (recordId.StartsWith("records/items/", StringComparison.OrdinalIgnoreCase) &&
+                !recordId.StartsWith("records/items/loottables/", StringComparison.OrdinalIgnoreCase)) ||
+               recordId.Contains("/skillmodifiers/ascended/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool _isDropCondition(string recordId, string field, string? textValue)
@@ -685,16 +496,5 @@ internal sealed class DatabaseInitializer
             File.Replace(temporaryPath, targetPath, null, true);
         else
             File.Move(temporaryPath, targetPath);
-    }
-
-    private void _report(string stage, string source, int current, int total)
-    {
-        _progress?.Invoke(new InitializationProgress
-        {
-            Stage = stage,
-            Source = source,
-            Current = current,
-            Total = total
-        });
     }
 }

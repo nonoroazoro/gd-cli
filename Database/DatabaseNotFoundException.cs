@@ -1,4 +1,4 @@
-namespace GdCli;
+namespace GdCli.Database;
 
 internal sealed class DatabaseNotFoundException : Exception
 {

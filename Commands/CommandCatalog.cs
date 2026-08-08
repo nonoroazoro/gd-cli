@@ -30,10 +30,21 @@ internal static class CommandCatalog
                     "--type VALUE|all",
                     "--min-level N",
                     "--max-level N",
+                    "--mi true|false",
                     "--offset N",
                     "--limit N",
                     "--all",
                     "--no-stats"
+                ]),
+            _command(
+                "item-families",
+                "Query item records grouped by stable game name tag.",
+                options:
+                [
+                    "--mi true|false",
+                    "--offset N",
+                    "--limit N",
+                    "--all"
                 ]),
             _command("item", "Get one item by exact record ID.", ["record-id"], ["--no-stats"]),
             _command(
@@ -43,6 +54,7 @@ internal static class CommandCatalog
                 [
                     "--rarity VALUE|all",
                     "--kind prefix|suffix|all",
+                    "--type VALUE|all",
                     "--min-level N",
                     "--max-level N",
                     "--offset N",
@@ -51,6 +63,22 @@ internal static class CommandCatalog
                     "--no-stats"
                 ]),
             _command("affix", "Get one affix by exact record ID.", ["record-id"], ["--no-stats"]),
+            _command(
+                "ascended-affixes",
+                "Query Ascended affixes by game-native equipment category.",
+                options:
+                [
+                    "--category VALUE|all",
+                    "--offset N",
+                    "--limit N",
+                    "--all",
+                    "--no-stats"
+                ]),
+            _command(
+                "ascended-affix",
+                "Get one Ascended affix by exact record ID.",
+                ["record-id"],
+                ["--no-stats"]),
             _command(
                 "drops",
                 "Find monster-specific item drops and map locations.",

@@ -240,7 +240,7 @@ internal sealed class WorldMapReader : IDisposable
                 if (relative < 0)
                     break;
                 relative += searchOffset;
-                if (relative >= 4 && _tryGetLevelPathLength(span, relative, out var pathLength))
+                if (relative >= 4 && _tryGetLevelPathLength(span, relative, out _))
                     return absoluteStart + relative;
                 searchOffset = relative + 1;
             }

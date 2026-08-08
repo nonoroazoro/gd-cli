@@ -2,12 +2,33 @@ namespace GdCli.Database;
 
 internal static class DatabaseSchema
 {
-    public const int Version = 1;
+    public const int Version = 2;
 
-    public const string CreateSql = """
+    public static IReadOnlyList<string> RequiredTables { get; } = Array.AsReadOnly<string>(
+    [
+        "metadata",
+        "sources",
+        "tags",
+        "records",
+        "field_names",
+        "item_fields",
+        "record_references",
+        "drop_conditions",
+        "items",
+        "affixes",
+        "affix_item_classes",
+        "ascended_affixes",
+        "ascended_affix_categories",
+        "ascended_skill_modifiers",
+        "monster_drops",
+        "levels",
+        "placements"
+    ]);
+
+    public static readonly string CreateSql = $$"""
         PRAGMA page_size = 32768;
         PRAGMA foreign_keys = ON;
-        PRAGMA user_version = 1;
+        PRAGMA user_version = {{Version}};
 
         CREATE TABLE metadata (
             key TEXT PRIMARY KEY,
@@ -101,6 +122,34 @@ internal static class DatabaseSchema
             FOREIGN KEY (record_pk) REFERENCES records(id) ON DELETE CASCADE
         );
 
+        CREATE TABLE affix_item_classes (
+            item_class TEXT NOT NULL COLLATE NOCASE,
+            affix_pk INTEGER NOT NULL,
+            PRIMARY KEY (item_class, affix_pk),
+            FOREIGN KEY (affix_pk) REFERENCES affixes(record_pk) ON DELETE CASCADE
+        ) WITHOUT ROWID;
+
+        CREATE TABLE ascended_affixes (
+            record_pk INTEGER PRIMARY KEY,
+            FOREIGN KEY (record_pk) REFERENCES records(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE ascended_affix_categories (
+            affix_pk INTEGER NOT NULL,
+            category TEXT NOT NULL COLLATE NOCASE,
+            group_name TEXT NOT NULL COLLATE NOCASE,
+            PRIMARY KEY (affix_pk, category, group_name),
+            FOREIGN KEY (affix_pk) REFERENCES ascended_affixes(record_pk) ON DELETE CASCADE
+        ) WITHOUT ROWID;
+
+        CREATE TABLE ascended_skill_modifiers (
+            affix_pk INTEGER NOT NULL,
+            modifier_pk INTEGER NOT NULL,
+            PRIMARY KEY (affix_pk, modifier_pk),
+            FOREIGN KEY (affix_pk) REFERENCES ascended_affixes(record_pk) ON DELETE CASCADE,
+            FOREIGN KEY (modifier_pk) REFERENCES records(id)
+        ) WITHOUT ROWID;
+
         CREATE TABLE monster_drops (
             item_pk INTEGER NOT NULL,
             monster_pk INTEGER NOT NULL,
@@ -136,6 +185,11 @@ internal static class DatabaseSchema
     public const string CreateIndexesSql = """
         CREATE INDEX items_filter_idx ON items(rarity, item_class, required_level);
         CREATE INDEX affixes_filter_idx ON affixes(rarity, kind, required_level);
+        CREATE INDEX ascended_categories_filter_idx ON ascended_affix_categories(category, affix_pk);
         CREATE INDEX placements_record_idx ON placements(record_pk);
+        """;
+
+    public const string CreateReferenceIndexesSql = """
+        CREATE INDEX references_target_idx ON record_references(target_pk);
         """;
 }
