@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Package win-x64
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Test
+        shell: pwsh
+        run: dotnet test tests/GdCli.Tests.csproj --configuration Release
+
+      - name: Publish
+        shell: pwsh
+        run: >-
+          dotnet publish gd-cli.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          --output "${{ runner.temp }}\publish"
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:DebugSymbols=false
+          -p:DebugType=None
+
+      - name: Package ZIP
+        id: package
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          $publishDirectory = "${{ runner.temp }}\publish"
+          $safeTag = $env:RELEASE_TAG -replace '[^0-9A-Za-z._-]', '-'
+          if ([string]::IsNullOrWhiteSpace($safeTag)) {
+              throw "Release tag cannot produce a valid asset name."
+          }
+
+          Copy-Item -LiteralPath "README.md" -Destination $publishDirectory
+          $expectedFiles = @(
+              "gd-cli.exe",
+              "README.md",
+              "skills\gd-cli\SKILL.md",
+              "skills\gd-cli\references\affix-ranking.md"
+          ) | Sort-Object
+          $actualFiles = Get-ChildItem -LiteralPath $publishDirectory -Recurse -File |
+              ForEach-Object {
+                  [IO.Path]::GetRelativePath($publishDirectory, $_.FullName)
+              } |
+              Sort-Object
+          $differences = Compare-Object -ReferenceObject $expectedFiles -DifferenceObject $actualFiles -CaseSensitive
+          if ($differences) {
+              $details = $differences | Out-String
+              throw "Published output does not match the release allowlist:`n$details"
+          }
+
+          & (Join-Path $publishDirectory "gd-cli.exe") --help | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+              throw "Published executable failed its startup smoke test."
+          }
+
+          $assetName = "gd-cli-$safeTag-win-x64.zip"
+          $archivePath = Join-Path "${{ runner.temp }}" $assetName
+          Compress-Archive -Path (Join-Path $publishDirectory "*") -DestinationPath $archivePath
+          "archive=$archivePath" >> $env:GITHUB_OUTPUT
+
+      - name: Upload release asset
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          ARCHIVE_PATH: ${{ steps.package.outputs.archive }}
+        run: gh release upload $env:RELEASE_TAG $env:ARCHIVE_PATH --clobber --repo $env:GITHUB_REPOSITORY
