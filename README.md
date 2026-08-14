@@ -60,6 +60,17 @@ gd-cli search <query> [filters] [paging]
 
 Use `gd-cli --help` for root commands and global flags. Use `gd-cli <command> --help` for command arguments and options.
 
+### Item queries
+
+| Need | Command |
+|---|---|
+| Find or filter individual records | `search`, `items` |
+| Group related records by `nameTag` | `item-families` |
+| Read one complete record and its stats | `item <record-id>` |
+| Find acquisition methods | `acquisition <name-or-record-id>` |
+
+Locate the item, inspect its record, then query acquisition as needed.
+
 Common options:
 
 - `--query JMESPATH` projects the final JSON.

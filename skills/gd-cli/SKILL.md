@@ -21,14 +21,14 @@ Before a query, run `gd-cli info`:
 | `init <grim-dawn-game-directory>` | Rebuild the CLI database from game data. |
 | `info` | Show database metadata and available values. |
 | `schema` | Show fields, capabilities, and valid filter values. |
-| `items` | Query item records. |
-| `item-families` | Query item records grouped by stable game name tag. |
-| `item <record-id>` | Get one item by exact record ID. |
+| `items` | Filter and list individual item records. |
+| `item-families` | Group related records by stable game name tag. |
+| `item <record-id>` | Get one complete item record and its stats. |
 | `affixes` | Query prefix and suffix records, optionally by compatible item class. |
 | `affix <record-id>` | Get one affix by exact record ID. |
 | `ascended-affixes` | Query Ascended affixes by game-native equipment category. |
 | `ascended-affix <record-id>` | Get one Ascended affix by exact record ID. |
-| `acquisition <item-name-or-record-id>` | Find every known way to acquire an item. |
+| `acquisition <item-name-or-record-id>` | Find acquisition methods without item stats. |
 | `quests` | Query quest definitions. |
 | `quest <quest-name-or-path>` | Get a quest graph, relevant actors, and key coordinates. |
 | `search <query>` | Search item and affix names or record IDs. |
@@ -43,6 +43,7 @@ Before a query, run `gd-cli info`:
 
 - Results are compact JSON on stdout. Errors are JSON on stderr. Exit codes indicate status.
 - Numeric fields are JSON numbers.
+- Locate with `search`, `items`, or `item-families`; inspect stats with `item`; query sources with `acquisition`.
 - Use `items --mi true` for MI records and `item-families --mi true` for families containing an MI record. On `item-families`, `--mi false` means no MI records.
 - Use `affixes --type <itemClass>` for compatible prefix and suffix records.
 - Use `ascended-affixes --category <category>` for Ascended affixes. Read valid raw values from `info` or `schema`.
