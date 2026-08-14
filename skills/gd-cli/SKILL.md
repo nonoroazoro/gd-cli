@@ -39,23 +39,20 @@ Before a query, run `gd-cli info`:
 
 `gd-cli --help` returns root commands and global flags. `gd-cli <command-path> --help` returns that node's description, arguments, options, and direct subcommands when present.
 
-## Contract
+## Principles
 
-- Results are compact JSON on stdout. Errors are JSON on stderr. Exit codes indicate status.
-- Numeric fields are JSON numbers.
-- Locate with `search`, `items`, or `item-families`; inspect stats with `item`; query sources with `acquisition`.
-- Use `items --mi true` for MI records and `item-families --mi true` for families containing an MI record. On `item-families`, `--mi false` means no MI records.
-- Use `affixes --type <itemClass>` for compatible prefix and suffix records.
-- Use `ascended-affixes --category <category>` for Ascended affixes. Read valid raw values from `info` or `schema`.
-- Keep normal and Ascended affix results separate. Combine them only in agent reasoning.
-- For BiS evaluation, default to sustained real-combat performance unless the user explicitly requests burst, one-shot, or single-hit optimization. Model the complete rotation, filler actions, WPS, and trigger frequency. Do not rank only the main skill's single hit.
-- Treat acquisition methods as additive. An item may have `vendor`, `specificMonster`, `randomDrop`, and `craft` methods.
-- For `craft`, inspect the recipe and its nested known sources.
-- `randomDrop` represents a randomized loot pool and intentionally does not enumerate every monster using that pool.
-- Check `routesTruncated` before treating `specificMonster` routes as complete.
-- Treat `quest.nodes` and `quest.edges` as a graph. Preserve branches, use entity coordinates only when present, and report unresolved references instead of guessing.
-- CLI-owned text is English. Parsed names use the language selected by `init`.
-- Queries read only the CLI database. `init` opens game files read-only with shared access, cleans up only its own temporary database, and never modifies game files.
-- Use `<command-path> --help` for node-specific help. Use `tree` and `schema` for discovery and raw values.
+- Use the narrowest useful command. Discover capabilities through `tree`, command help, `info`, and `schema`.
+- Treat CLI JSON as authoritative game data. Preserve canonical terms, numeric types, relationships, and uncertainty; combine or explain them as the task requires.
+- Default to the initialized database language. Change source language only after an explicit request. Queries are read-only; `init` replaces only the CLI-owned database.
+
+## Coordinate presentation
+
+Present each complete teleport coordinate on one plain-text line:
+
+`[<category>]<short label>, <x>, <y>, <z>`
+
+Example: `[Dungeon]Ashen Waste, -967, 2.19, 3341`
+
+Prefer a useful category, the canonical label, and the original `x`, `y`, `z` values. Put additional context outside the line.
 
 For BiS affix evaluation, read [references/affix-ranking.md](references/affix-ranking.md).
