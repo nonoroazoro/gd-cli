@@ -80,8 +80,8 @@ internal static class CommandCatalog
                 ["record-id"],
                 ["--no-stats"]),
             _command(
-                "drops",
-                "Find monster-specific item drops and map locations.",
+                "acquisition",
+                "Find every known way to acquire an item.",
                 ["item-name-or-record-id"],
                 ["--offset N", "--limit N", "--all"]),
             _command(

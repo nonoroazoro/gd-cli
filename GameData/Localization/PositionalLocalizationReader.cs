@@ -1,5 +1,5 @@
-using GdCli.GameData.Arc;
 using System.Text;
+using GdCli.GameData.Arc;
 
 namespace GdCli.GameData.Localization;
 

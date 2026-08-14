@@ -54,7 +54,7 @@ internal sealed class CommandLineOptions
 
     public bool GameLanguageSpecified { get; set; }
 
-    public string? DropQuery { get; set; }
+    public string? AcquisitionQuery { get; set; }
 
     public string? QuestQuery { get; set; }
 

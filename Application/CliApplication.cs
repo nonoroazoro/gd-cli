@@ -1,9 +1,9 @@
 using GdCli.Commands;
 using GdCli.Contracts;
 using GdCli.Database;
+using GdCli.Features.Acquisition;
 using GdCli.Features.Affixes;
 using GdCli.Features.Affixes.Formatting;
-using GdCli.Features.Drops;
 using GdCli.Output;
 
 namespace GdCli.Application;
@@ -166,8 +166,8 @@ internal sealed class CliApplication
             case "search":
                 _writeSearch(database, options);
                 return (int)ExitCode.Success;
-            case "drops":
-                return _writeDrops(database, options);
+            case "acquisition":
+                return _writeAcquisition(database, options);
             case "quests":
                 _writeQuests(database, options);
                 return (int)ExitCode.Success;
@@ -294,22 +294,23 @@ internal sealed class CliApplication
         _writeEnvelope(database, options, "search", total, page);
     }
 
-    private int _writeDrops(CliDatabase database, CommandLineOptions options)
+    private int _writeAcquisition(CliDatabase database, CommandLineOptions options)
     {
-        var query = options.DropQuery ?? string.Empty;
+        var query = options.AcquisitionQuery ?? string.Empty;
         var exact = database.Items.CountMatches(query, true, false) > 0;
-        var matchCount = database.Items.CountMatches(query, exact, false);
-        if (matchCount == 0)
+        var total = database.Items.CountMatches(query, exact, false);
+        if (total == 0)
             return _writeError(ExitCode.RecordNotFound, $"Item was not found: {query}");
 
-        var total = database.Items.CountMatches(query, exact, true);
-        if (total == 0)
-            return _writeError(ExitCode.NotMi, $"Item has no monster-specific drop data: {query}");
-
-        var page = database.Items.LoadMatches(query, exact, true, options.Offset, options.All ? null : options.Limit);
-        var resolver = new DropResolver(database);
+        var page = database.Items.LoadMatches(
+            query,
+            exact,
+            false,
+            options.Offset,
+            options.All ? null : options.Limit);
+        var resolver = new AcquisitionResolver(database.Acquisitions);
         var data = resolver.Resolve(page);
-        _writeEnvelope(database, options, "drops", total, data);
+        _writeEnvelope(database, options, "acquisition", total, data);
         return (int)ExitCode.Success;
     }
 
@@ -346,7 +347,7 @@ internal sealed class CliApplication
             return;
 
         var stats = database.LoadStats(items.Select(item => item.RecordId));
-        var miSources = database.LoadMiSources(items.Select(item => item.RecordId));
+        var miSources = database.Acquisitions.LoadMiSources(items.Select(item => item.RecordId));
         foreach (var item in items)
         {
             item.Stats = stats.GetValueOrDefault(item.RecordId) ?? [];
@@ -507,7 +508,6 @@ internal sealed class CliApplication
             ExitCode.DatabaseNotFound => "database_not_found",
             ExitCode.IncompatibleDatabase => "incompatible_database",
             ExitCode.RecordNotFound => "record_not_found",
-            ExitCode.NotMi => "not_mi",
             _ => "unexpected_error"
         };
     }

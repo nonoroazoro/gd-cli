@@ -7,6 +7,5 @@ internal enum ExitCode
     InvalidArguments = 2,
     DatabaseNotFound = 3,
     IncompatibleDatabase = 4,
-    RecordNotFound = 5,
-    NotMi = 6
+    RecordNotFound = 5
 }

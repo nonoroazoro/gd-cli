@@ -1,6 +1,6 @@
-namespace GdCli.Features.Drops;
+namespace GdCli.Contracts;
 
-internal sealed class DropPathStep
+internal sealed class LootPathStep
 {
     public required string RecordId { get; init; }
 
@@ -10,5 +10,5 @@ internal sealed class DropPathStep
 
     public required string Field { get; init; }
 
-    public IReadOnlyList<DropCondition> Conditions { get; init; } = [];
+    public IReadOnlyList<LootCondition> Conditions { get; init; } = [];
 }

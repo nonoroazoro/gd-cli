@@ -41,8 +41,8 @@ internal static class DatabaseInitializer
             GameRecordCatalogBuilder.Build(connection, transaction);
             AffixCompatibilityBuilder.Build(connection, transaction);
             AscendedAffixBuilder.Build(connection, transaction);
-            _execute(connection, transaction, DatabaseSchema.CreateReferenceIndexesSql);
-            MonsterDropBuilder.Build(connection, transaction);
+            _execute(connection, transaction, DatabaseSchema.CreateBuildIndexesSql);
+            AcquisitionCatalogBuilder.Build(connection, transaction);
             QuestCatalogBuilder.Build(connection, transaction, install);
             _importMaps(connection, transaction, install);
             transaction.Commit();
@@ -119,7 +119,7 @@ internal static class DatabaseInitializer
         using var insertFieldName = _command(connection, transaction,
             "INSERT INTO field_names(name) VALUES (@name) RETURNING id");
         using var deleteItemFields = _command(connection, transaction, "DELETE FROM item_fields WHERE record_pk = @record");
-        using var deleteConditions = _command(connection, transaction, "DELETE FROM drop_conditions WHERE record_pk = @record");
+        using var deleteConditions = _command(connection, transaction, "DELETE FROM loot_conditions WHERE record_pk = @record");
         using var deleteReferences = _command(connection, transaction, "DELETE FROM raw_references WHERE source_pk = @record");
         _ = deleteItemFields.Parameters.Add("@record", SqliteType.Integer);
         _ = deleteConditions.Parameters.Add("@record", SqliteType.Integer);
@@ -134,7 +134,7 @@ internal static class DatabaseInitializer
         var fieldNumeric = insertField.Parameters.Add("@numeric", SqliteType.Real);
         var fieldText = insertField.Parameters.Add("@text", SqliteType.Text);
         using var insertCondition = _command(connection, transaction, """
-            INSERT INTO drop_conditions(record_pk, field_pk, ordinal, numeric_value, text_value)
+            INSERT INTO loot_conditions(record_pk, field_pk, ordinal, numeric_value, text_value)
             VALUES (@record, @field, @ordinal, @numeric, @text)
             """);
         var conditionRecord = insertCondition.Parameters.Add("@record", SqliteType.Integer);
@@ -210,7 +210,7 @@ internal static class DatabaseInitializer
                         fieldText.Value = _dbValue(field.TextValue);
                         insertField.ExecuteNonQuery();
                     }
-                    if (_isDropCondition(normalizedRecord, field.Name, field.TextValue))
+                    if (_isLootCondition(normalizedRecord, field.Name, field.TextValue))
                     {
                         conditionRecord.Value = recordPk;
                         conditionField.Value = fieldPk;
@@ -311,7 +311,11 @@ internal static class DatabaseInitializer
         using var command = _command(connection, transaction, """
             SELECT R.id, R.record_id
             FROM records R
-            WHERE R.id IN (SELECT monster_pk FROM monster_drops)
+            WHERE R.id IN (
+                    SELECT source_pk
+                    FROM acquisition_sources
+                    WHERE source_pk IS NOT NULL
+                )
                OR R.id IN (SELECT record_pk FROM quest_entities)
                OR R.id IN (SELECT placed_pk FROM entity_aliases)
                OR ((R.record_id LIKE 'records/proxies/%' OR R.record_id LIKE 'records/creatures/%')
@@ -389,8 +393,8 @@ internal static class DatabaseInitializer
             Sources = install.Sources.Count,
             Records = _scalar(connection, "SELECT COUNT(*) FROM records"),
             ItemFields = _scalar(connection, "SELECT COUNT(*) FROM item_fields"),
-            DropEdges = _scalar(connection, "SELECT COUNT(*) FROM record_references"),
-            DropConditions = _scalar(connection, "SELECT COUNT(*) FROM drop_conditions"),
+            LootGraphEdges = _scalar(connection, "SELECT COUNT(*) FROM record_references"),
+            LootConditions = _scalar(connection, "SELECT COUNT(*) FROM loot_conditions"),
             Items = _scalar(connection, "SELECT COUNT(*) FROM items"),
             Affixes = _scalar(connection, "SELECT COUNT(*) FROM affixes"),
             AscendedAffixes = _scalar(connection, "SELECT COUNT(*) FROM ascended_affixes"),
@@ -400,7 +404,8 @@ internal static class DatabaseInitializer
             AffixCompatibilityRelations = _scalar(connection, "SELECT COUNT(*) FROM affix_item_classes"),
             Levels = _scalar(connection, "SELECT COUNT(*) FROM levels"),
             Placements = _scalar(connection, "SELECT COUNT(*) FROM placements"),
-            MonsterDrops = _scalar(connection, "SELECT COUNT(*) FROM monster_drops"),
+            AcquisitionSources = _scalar(connection, "SELECT COUNT(*) FROM acquisition_sources"),
+            Recipes = _scalar(connection, "SELECT COUNT(*) FROM recipes"),
             Quests = _scalar(connection, "SELECT COUNT(*) FROM quests"),
             QuestNodes = _scalar(connection, "SELECT COUNT(*) FROM quest_nodes"),
             QuestEntities = _scalar(connection, "SELECT COUNT(*) FROM quest_entities"),
@@ -462,7 +467,7 @@ internal static class DatabaseInitializer
                recordId.Contains("/skillmodifiers/ascended/", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool _isDropCondition(string recordId, string field, string? textValue)
+    private static bool _isLootCondition(string recordId, string field, string? textValue)
     {
         if (textValue != null && textValue.EndsWith(".dbr", StringComparison.OrdinalIgnoreCase))
             return false;

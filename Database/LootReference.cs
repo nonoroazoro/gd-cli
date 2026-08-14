@@ -1,6 +1,6 @@
-namespace GdCli.Features.Drops;
+namespace GdCli.Database;
 
-internal sealed class DropReference
+internal sealed class LootReference
 {
     public required string SourceRecordId { get; init; }
 
@@ -9,6 +9,4 @@ internal sealed class DropReference
     public required string SourceClass { get; init; }
 
     public required string Field { get; init; }
-
-    public required string TargetRecordId { get; init; }
 }

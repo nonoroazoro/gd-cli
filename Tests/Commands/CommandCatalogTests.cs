@@ -28,4 +28,11 @@ public sealed class CommandCatalogTests
         Assert.Contains("--category VALUE|all", ascended.Options);
         Assert.DoesNotContain(ascended.Options, option => option.StartsWith("--type", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void AcquisitionIsTheOnlyItemSourceCommand()
+    {
+        Assert.Contains("acquisition", CommandCatalog.CommandNames);
+        Assert.DoesNotContain("drops", CommandCatalog.CommandNames);
+    }
 }

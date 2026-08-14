@@ -32,4 +32,16 @@ public sealed class JsonOutputTests
             "{\"kind\":\"BeginQuest\",\"questPath\":\"quests/test.qst\"}" + Environment.NewLine,
             writer.ToString());
     }
+
+    [Fact]
+    public void AcquisitionMethodsOmitFieldsThatDoNotApply()
+    {
+        using var writer = new StringWriter(CultureInfo.InvariantCulture);
+
+        JsonOutput.Write(writer, new AcquisitionMethod { Kind = "unknown" });
+
+        Assert.Equal(
+            "{\"kind\":\"unknown\"}" + Environment.NewLine,
+            writer.ToString());
+    }
 }

@@ -15,7 +15,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="tests\**\*.cs" />
+    <Compile Remove="Tests\**\*.cs" />
     <InternalsVisibleTo Include="GdCli.Tests" />
   </ItemGroup>
 

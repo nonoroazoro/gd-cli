@@ -1,6 +1,6 @@
 # gd-cli
 
-Agent-first CLI for querying Grim Dawn items, affixes, monster-specific drops, quests, and key map coordinates. It returns stable, compact JSON and is not designed for interactive human use.
+Agent-first CLI for querying Grim Dawn items, affixes, acquisition methods, quests, and key map coordinates. It returns stable, compact JSON and is not designed for interactive human use.
 
 ## AI agent setup
 
@@ -8,7 +8,7 @@ Run `gd-cli`.
 
 Install or link `skills/gd-cli` into the agent's Skill directory.
 
-The Skill includes a compatibility-first workflow for evaluating BiS Prefix, Suffix, and Ascended affixes.
+The Skill covers acquisition queries and compatibility-first BiS evaluation for Prefix, Suffix, and Ascended affixes.
 
 For Codex on Windows:
 
@@ -52,7 +52,7 @@ gd-cli affixes [filters] [paging]
 gd-cli affix <record-id> [--no-stats]
 gd-cli ascended-affixes [filters] [paging]
 gd-cli ascended-affix <record-id> [--no-stats]
-gd-cli drops <item-name-or-record-id> [paging]
+gd-cli acquisition <item-name-or-record-id> [paging]
 gd-cli quests [paging]
 gd-cli quest <quest-name-or-path> [paging]
 gd-cli search <query> [filters] [paging]
@@ -83,12 +83,17 @@ Common options:
 - `--mi false` selects families containing no MI records.
 - `info.miCount` is a compatibility alias of `info.miRecordCount`.
 
-### Drops
+### Acquisition
 
-`drops` covers Rare, Epic, and Legendary equipment with monster-specific drop relations. Random world drops are excluded.
+`acquisition` reports every known way to obtain an item:
 
-- An empty `routes` array means no fixed map placement was found.
-- Check `routesTruncated` before treating routes as complete.
+- `vendor`: direct merchant inventory, with known map coordinates.
+- `specificMonster`: dedicated monster loot paths, with actors, conditions, and coordinates.
+- `randomDrop`: randomized loot pools without expanding every monster using the pool.
+- `craft`: a recipe or design plus its known acquisition sources.
+- `unknown`: no supported source was derived from the game data.
+
+Methods are not mutually exclusive. Check `routesTruncated` before treating `specificMonster` routes as complete.
 
 ### Affix compatibility
 

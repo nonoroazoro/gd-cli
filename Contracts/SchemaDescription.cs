@@ -41,6 +41,8 @@ internal sealed class SchemaDescription
             ["miCount"] = "compatibility alias of miRecordCount",
             ["miRecordCount"] = "number of MI item records",
             ["miNameTagCount"] = "number of distinct name tags containing MI records",
+            ["acquisitionSourceCount"] = "number of derived item acquisition sources",
+            ["recipeCount"] = "number of crafted item and recipe relations",
             ["gameLanguage"] = "language of parsed game text",
             ["gameDirectory"] = "game directory used by init",
             ["rarities"] = "valid rarity filter values",
@@ -75,19 +77,20 @@ internal sealed class SchemaDescription
             ["rarities"] = "string[]"
         };
 
-    public IReadOnlyDictionary<string, string> DropFields { get; init; } =
+    public IReadOnlyDictionary<string, string> AcquisitionFields { get; init; } =
         new Dictionary<string, string>
         {
-            ["recordId"] = "string",
-            ["name"] = "string",
-            ["nameTag"] = "stable game text tag or null",
-            ["rarity"] = "string from itemClassification",
-            ["isMi"] = "boolean",
-            ["miSources"] = "MonsterSource[]",
-            ["routes"] = "drop graph paths with map coordinates",
-            ["routesTruncated"] = "boolean; true when route or depth limits prevented a complete result",
+            ["item"] = "queried item identity",
+            ["methods"] = "vendor, specificMonster, randomDrop, craft, or unknown acquisition methods",
+            ["recipe"] = "craft recipe or design identity when kind is craft",
+            ["sources"] = "known recipe acquisition methods when kind is craft",
+            ["actors"] = "grouped source monsters or vendors with all stable record IDs and available map locations",
+            ["routes"] = "specific monster loot graph paths with map coordinates",
+            ["path"] = "ordered loot graph steps from the item to a placed source",
+            ["conditions"] = "game-native weight, chance, equipment, and level conditions for a path step",
+            ["routesTruncated"] = "true when route or depth limits prevented a complete result",
             ["routeLimit"] = "maximum number of distinct routes returned",
-            ["maximumDepth"] = "maximum runtime drop graph depth"
+            ["maximumDepth"] = "maximum runtime loot graph depth"
         };
 
     public IReadOnlyDictionary<string, string> AffixFields { get; init; } =
@@ -138,8 +141,12 @@ internal sealed class SchemaDescription
             ["independentDatabase"] = true,
             ["initialization"] = true,
             ["streamingGameData"] = true,
-            ["miDrops"] = true,
-            ["miMapLocations"] = true,
+            ["itemAcquisition"] = true,
+            ["monsterSpecificAcquisition"] = true,
+            ["vendorAcquisition"] = true,
+            ["randomDropAcquisition"] = true,
+            ["craftAcquisition"] = true,
+            ["acquisitionMapLocations"] = true,
             ["itemFamilies"] = true,
             ["jmesPathQuery"] = true,
             ["itemAffixCompatibility"] = true,

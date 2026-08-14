@@ -14,9 +14,9 @@ internal sealed class InitializationResult
 
     public required long ItemFields { get; init; }
 
-    public required long DropEdges { get; init; }
+    public required long LootGraphEdges { get; init; }
 
-    public required long DropConditions { get; init; }
+    public required long LootConditions { get; init; }
 
     public required long Items { get; init; }
 
@@ -32,7 +32,9 @@ internal sealed class InitializationResult
 
     public required long Placements { get; init; }
 
-    public required long MonsterDrops { get; init; }
+    public required long AcquisitionSources { get; init; }
+
+    public required long Recipes { get; init; }
 
     public required long Quests { get; init; }
 

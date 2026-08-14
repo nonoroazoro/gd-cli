@@ -72,4 +72,12 @@ public sealed class CommandLineParserTests
 
         Assert.Equal("Into the Breach", options.QuestQuery);
     }
+
+    [Fact]
+    public void ParseReadsMultiWordAcquisitionName()
+    {
+        var options = CommandLineParser.Parse(["acquisition", "Conduit", "of", "Whispers"]);
+
+        Assert.Equal("Conduit of Whispers", options.AcquisitionQuery);
+    }
 }

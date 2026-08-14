@@ -58,7 +58,7 @@ internal sealed class TestDatabase : IDisposable
                 (900, 901);
             """);
         _execute(connection, GdCli.Database.DatabaseSchema.CreateIndexesSql);
-        _execute(connection, GdCli.Database.DatabaseSchema.CreateReferenceIndexesSql);
+        _execute(connection, GdCli.Database.DatabaseSchema.CreateBuildIndexesSql);
     }
 
     public string Path { get; }

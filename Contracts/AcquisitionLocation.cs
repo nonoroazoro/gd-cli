@@ -1,12 +1,14 @@
-namespace GdCli.Features.Drops;
+namespace GdCli.Contracts;
 
-internal sealed class DropLocation
+internal sealed class AcquisitionLocation
 {
     public required string Source { get; init; }
 
     public required string Level { get; init; }
 
     public required string RiftGateRecordId { get; init; }
+
+    public required string PlacedRecordId { get; init; }
 
     public required double X { get; init; }
 

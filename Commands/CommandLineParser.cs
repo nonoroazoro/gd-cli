@@ -157,10 +157,10 @@ internal static class CommandLineParser
                     throw new CommandLineException("init requires exactly one Grim Dawn game directory.");
                 options.GameDirectory = positionals[0];
                 break;
-            case "drops":
+            case "acquisition":
                 if (positionals.Count == 0)
-                    throw new CommandLineException("drops requires an item name or record ID.");
-                options.DropQuery = string.Join(' ', positionals);
+                    throw new CommandLineException("acquisition requires an item name or record ID.");
+                options.AcquisitionQuery = string.Join(' ', positionals);
                 break;
             case "quest":
                 if (positionals.Count == 0)

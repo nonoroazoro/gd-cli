@@ -1,6 +1,5 @@
 using System.Globalization;
 using GdCli.Contracts;
-using GdCli.Features.Drops;
 using Microsoft.Data.Sqlite;
 
 namespace GdCli.Database;
@@ -27,6 +26,7 @@ internal sealed class CliDatabase : IDisposable
             ItemFamilies = new ItemFamilyRepository(_connection);
             Affixes = new AffixRepository(_connection);
             AscendedAffixes = new AscendedAffixRepository(_connection);
+            Acquisitions = new AcquisitionRepository(_connection);
             Search = new SearchRepository(_connection);
             Quests = new QuestRepository(_connection);
         }
@@ -51,6 +51,8 @@ internal sealed class CliDatabase : IDisposable
     public AffixRepository Affixes { get; }
 
     public AscendedAffixRepository AscendedAffixes { get; }
+
+    public AcquisitionRepository Acquisitions { get; }
 
     public SearchRepository Search { get; }
 
@@ -86,6 +88,8 @@ internal sealed class CliDatabase : IDisposable
                 JOIN records R ON R.id = I.record_pk
                 WHERE I.is_mi = 1 AND R.name_tag IS NOT NULL AND R.name_tag <> ''
                 """),
+            AcquisitionSourceCount = _scalar<long>("SELECT COUNT(*) FROM acquisition_sources"),
+            RecipeCount = _scalar<long>("SELECT COUNT(*) FROM recipes"),
             GameLanguage = _metadata("gameLanguage"),
             GameDirectory = _metadata("gameDirectory"),
             Rarities = GetRarities(),
@@ -176,127 +180,6 @@ internal sealed class CliDatabase : IDisposable
             using var reader = command.ExecuteReader();
             while (reader.Read())
                 result[reader.GetString(0)] = reader.GetString(1);
-        }
-        return result;
-    }
-
-    public Dictionary<string, List<MonsterSource>> LoadMiSources(IEnumerable<string> itemRecords)
-    {
-        var result = new Dictionary<string, List<MonsterSource>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var chunk in itemRecords.Distinct(StringComparer.OrdinalIgnoreCase).Chunk(400))
-        {
-            using var command = _connection.CreateCommand();
-            var parameters = SqliteQuery.AddValues(command, "item", chunk);
-            command.CommandText = $"""
-                SELECT I.record_id, M.record_id, M.display_name
-                FROM monster_drops MD
-                JOIN records I ON I.id = MD.item_pk
-                JOIN records M ON M.id = MD.monster_pk
-                WHERE I.record_id IN ({parameters})
-                ORDER BY M.display_name COLLATE NOCASE, M.record_id
-                """;
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                var item = reader.GetString(0);
-                if (!result.TryGetValue(item, out var sources))
-                {
-                    sources = [];
-                    result[item] = sources;
-                }
-                sources.Add(new MonsterSource
-                {
-                    RecordId = reader.GetString(1),
-                    Name = reader.GetString(2)
-                });
-            }
-        }
-        return result;
-    }
-
-    public IReadOnlyList<DropReference> LoadReverseDropReferences(string targetRecordId)
-    {
-        using var command = _connection.CreateCommand();
-        command.CommandText = """
-            SELECT S.record_id, S.display_name, COALESCE(S.class, ''), N.name, T.record_id
-            FROM record_references RR
-            JOIN records S ON S.id = RR.source_pk
-            JOIN records T ON T.id = RR.target_pk
-            JOIN field_names N ON N.id = RR.field_pk
-            WHERE T.record_id = @target
-              AND (
-                  S.record_id LIKE 'records/items/loottables/%'
-                  OR S.record_id LIKE 'records/creatures/%'
-                  OR S.record_id LIKE 'records/proxies/%'
-              )
-            ORDER BY S.record_id, N.name, RR.ordinal
-            """;
-        command.Parameters.AddWithValue("@target", targetRecordId);
-        using var reader = command.ExecuteReader();
-        var result = new List<DropReference>();
-        while (reader.Read())
-        {
-            result.Add(new DropReference
-            {
-                SourceRecordId = reader.GetString(0),
-                SourceName = reader.GetString(1),
-                SourceClass = reader.GetString(2),
-                Field = reader.GetString(3),
-                TargetRecordId = reader.GetString(4)
-            });
-        }
-        return result;
-    }
-
-    public IReadOnlyList<DropCondition> LoadDropConditions(string recordId)
-    {
-        using var command = _connection.CreateCommand();
-        command.CommandText = """
-            SELECT N.name, C.numeric_value, C.text_value
-            FROM drop_conditions C
-            JOIN records R ON R.id = C.record_pk
-            JOIN field_names N ON N.id = C.field_pk
-            WHERE R.record_id = @record
-            ORDER BY N.name, C.ordinal
-            """;
-        command.Parameters.AddWithValue("@record", recordId);
-        using var reader = command.ExecuteReader();
-        var result = new List<DropCondition>();
-        while (reader.Read())
-            result.Add(new DropCondition
-            {
-                Field = reader.GetString(0),
-                Value = reader.GetDouble(1),
-                TextValue = reader.IsDBNull(2) ? null : reader.GetString(2)
-            });
-        return result;
-    }
-
-    public IReadOnlyList<DropLocation> LoadLocations(string recordId)
-    {
-        using var command = _connection.CreateCommand();
-        command.CommandText = """
-            SELECT L.source_name, L.level_path, L.rift_gate_record_id, P.world_x, P.world_y, P.world_z
-            FROM placements P
-            JOIN levels L ON L.id = P.level_pk
-            JOIN records R ON R.id = P.record_pk
-            WHERE R.record_id = @record
-            ORDER BY L.source_name, L.level_path, P.entity_ordinal
-            """;
-        command.Parameters.AddWithValue("@record", recordId);
-        using var reader = command.ExecuteReader();
-        var result = new List<DropLocation>();
-        while (reader.Read())
-        {
-            result.Add(new DropLocation
-            {
-                Source = reader.GetString(0),
-                Level = reader.GetString(1),
-                RiftGateRecordId = reader.GetString(2),
-                X = reader.GetDouble(3),
-                Y = reader.GetDouble(4),
-                Z = reader.GetDouble(5)
-            });
         }
         return result;
     }

@@ -77,7 +77,7 @@ internal static class CommandLineValidator
                 if (options.AscendedCategorySpecified)
                     throw new CommandLineException("--category is not valid for search.");
                 break;
-            case "drops":
+            case "acquisition":
             case "quest":
                 _rejectFilters(options);
                 _rejectGameLanguage(options);

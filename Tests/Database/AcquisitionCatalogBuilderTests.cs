@@ -1,0 +1,213 @@
+using System.Globalization;
+using GdCli.Database;
+using GdCli.Features.Acquisition;
+using Microsoft.Data.Sqlite;
+
+namespace GdCli.Tests.Database;
+
+public sealed class AcquisitionCatalogBuilderTests
+{
+    [Fact]
+    public void BuildPreservesMiTraversalSemantics()
+    {
+        using var fixture = new TestDatabase();
+        fixture.Execute("""
+            UPDATE items SET is_mi = 0;
+            UPDATE records
+            SET record_id = 'records/items/gearweapons/test.dbr', class = 'WeaponMelee_Mace'
+            WHERE id = 2;
+            INSERT INTO field_names(id, name) VALUES
+                (1, 'lootName1'),
+                (2, 'lootName2'),
+                (3, 'lootHeadItem1');
+            INSERT INTO records(id, record_id, source_name, class, template, display_name) VALUES
+                (7, 'records/items/loottables/a.dbr', 'base', 'LootTable', '', ''),
+                (8, 'records/items/loottables/b.dbr', 'base', 'LootTable', '', ''),
+                (9, 'records/creatures/monster.dbr', 'base', 'Monster', 'database/templates/monster.tpl', 'Monster');
+            INSERT INTO record_references(source_pk, field_pk, ordinal, target_pk) VALUES
+                (7, 1, 0, 2),
+                (8, 1, 0, 7),
+                (7, 2, 0, 8),
+                (9, 3, 0, 8),
+                (9, 3, 1, 1);
+            """);
+
+        fixture.Execute(AcquisitionCatalogBuilder.Build);
+
+        using var connection = _openReadOnly(fixture.Path);
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT I.is_mi, S.record_id
+            FROM items I
+            JOIN acquisition_sources A ON A.item_pk = I.record_pk
+            JOIN records S ON S.id = A.source_pk
+            WHERE I.record_pk = 2 AND A.kind = 'specificMonster'
+            """;
+        using var reader = command.ExecuteReader();
+        Assert.True(reader.Read());
+        Assert.True(reader.GetBoolean(0));
+        Assert.Equal("records/creatures/monster.dbr", reader.GetString(1));
+        Assert.False(reader.Read());
+        reader.Close();
+        command.CommandText = """
+            SELECT COUNT(*)
+            FROM acquisition_sources
+            WHERE item_pk = 1 AND kind = 'specificMonster'
+            """;
+        Assert.Equal(0L, command.ExecuteScalar());
+    }
+
+    [Fact]
+    public void BuildDerivesCraftVendorAndRandomSources()
+    {
+        using var fixture = new TestDatabase();
+        fixture.Execute("""
+            UPDATE items SET is_mi = 0;
+            INSERT INTO field_names(id, name) VALUES
+                (1, 'artifactName'),
+                (2, 'marketFileName'),
+                (3, 'marketWaistTable'),
+                (4, 'records'),
+                (5, 'lootName1'),
+                (6, 'lootMisc1Item1'),
+                (7, 'marketWeaponTable');
+            INSERT INTO records(id, record_id, source_name, class, template, name_tag, display_name) VALUES
+                (7, 'records/items/blueprint.dbr', 'base', 'ItemArtifactFormula', '', 'tagBlueprint', 'Blueprint'),
+                (8, 'records/creatures/npcs/merchant.dbr', 'base', 'NpcMerchant', '', 'tagMerchant', 'Merchant'),
+                (9, 'records/creatures/npcs/market.dbr', 'base', '', 'database/templates/market.tpl', NULL, 'Market'),
+                (10, 'records/items/loottables/vendor.dbr', 'base', 'LootTable', '', NULL, 'Vendor table'),
+                (11, 'records/items/loottables/mastertables/random.dbr', 'base', 'LootMasterTable', 'database/templates/lootmastertable.tpl', NULL, 'Random table'),
+                (12, 'records/items/loottables/random.dbr', 'base', 'LootTable', '', NULL, 'Random items'),
+                (13, 'records/creatures/monster.dbr', 'base', 'Monster', 'database/templates/monster.tpl', 'tagMonster', 'Monster'),
+                (14, 'records/items/loottables/recipe.dbr', 'base', 'LootTable', '', NULL, 'Recipe table');
+            INSERT INTO items(record_pk, name, rarity, item_class, item_level, required_level, is_mi)
+            VALUES (7, 'Blueprint', 'Legendary', 'ItemArtifactFormula', 1, 0, 0);
+            INSERT INTO record_references(source_pk, field_pk, ordinal, target_pk) VALUES
+                (7, 1, 0, 14),
+                (14, 4, 0, 2),
+                (8, 2, 0, 9),
+                (9, 3, 0, 10),
+                (9, 7, 0, 1),
+                (10, 5, 0, 7),
+                (11, 5, 0, 12),
+                (12, 4, 0, 7),
+                (13, 6, 0, 11),
+                (13, 6, 1, 7);
+            """);
+
+        fixture.Execute(AcquisitionCatalogBuilder.Build);
+
+        using var connection = _openReadOnly(fixture.Path);
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT kind, COALESCE(S.record_id, '')
+            FROM acquisition_sources A
+            LEFT JOIN records S ON S.id = A.source_pk
+            WHERE A.item_pk = 7
+            ORDER BY kind
+            """;
+        using var reader = command.ExecuteReader();
+        var sources = new List<(string Kind, string RecordId)>();
+        while (reader.Read())
+            sources.Add((reader.GetString(0), reader.GetString(1)));
+        Assert.Equal(
+        [
+            ("randomDrop", ""),
+            ("specificMonster", "records/creatures/monster.dbr"),
+            ("vendor", "records/creatures/npcs/merchant.dbr")
+        ], sources);
+        reader.Close();
+
+        command.CommandText = "SELECT recipe_item_pk FROM recipes WHERE result_item_pk = 2";
+        Assert.Equal(7L, command.ExecuteScalar());
+        command.CommandText = """
+            SELECT S.record_id
+            FROM acquisition_sources A
+            JOIN records S ON S.id = A.source_pk
+            WHERE A.item_pk = 1 AND A.kind = 'vendor'
+            """;
+        Assert.Equal("records/creatures/npcs/merchant.dbr", command.ExecuteScalar());
+        command.CommandText = "SELECT is_mi FROM items WHERE record_pk = 7";
+        Assert.False(Convert.ToBoolean(command.ExecuteScalar(), CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
+    public void BuildPreservesOnlyTheGraphRequiredByAcquisitionQueries()
+    {
+        using var fixture = new TestDatabase();
+        fixture.Execute("""
+            UPDATE items SET is_mi = 0;
+            UPDATE records
+            SET record_id = 'records/items/gearweapons/test.dbr', class = 'WeaponMelee_Mace'
+            WHERE id = 2;
+            INSERT INTO field_names(id, name) VALUES
+                (1, 'lootName1'),
+                (2, 'lootHeadItem1'),
+                (3, 'pool1'),
+                (4, 'marketFileName'),
+                (5, 'marketWaistTable'),
+                (6, 'unused');
+            INSERT INTO records(id, record_id, source_name, class, template, name_tag, display_name) VALUES
+                (7, 'records/items/loottables/specific.dbr', 'base', 'LootTable', '', NULL, 'Specific table'),
+                (8, 'records/creatures/monster.dbr', 'base', 'Monster', 'database/templates/monster.tpl', 'tagMonster', 'Monster'),
+                (9, 'records/proxies/monster.dbr', 'base', 'Proxy', '', NULL, 'Monster proxy'),
+                (10, 'records/creatures/npcs/merchant.dbr', 'base', 'NpcMerchant', '', 'tagMerchant', 'Merchant'),
+                (11, 'records/creatures/npcs/market.dbr', 'base', '', 'database/templates/market.tpl', NULL, 'Market'),
+                (12, 'records/items/loottables/vendor.dbr', 'base', 'LootTable', '', NULL, 'Vendor table'),
+                (13, 'records/proxies/merchant.dbr', 'base', 'Proxy', '', NULL, 'Merchant proxy'),
+                (14, 'records/unused/source.dbr', 'base', '', '', NULL, 'Unused source'),
+                (15, 'records/unused/target.dbr', 'base', '', '', NULL, 'Unused target');
+            INSERT INTO record_references(source_pk, field_pk, ordinal, target_pk) VALUES
+                (7, 1, 0, 2),
+                (8, 2, 0, 7),
+                (9, 3, 0, 8),
+                (10, 4, 0, 11),
+                (11, 5, 0, 12),
+                (12, 1, 0, 2),
+                (13, 3, 0, 10),
+                (14, 6, 0, 15);
+            """);
+
+        fixture.Execute(AcquisitionCatalogBuilder.Build);
+        fixture.Execute("""
+            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id, offset_x, offset_y, offset_z) VALUES
+                (1, 'base', 'world/monster', 'records/rift.dbr', 0, 0, 0),
+                (2, 'base', 'world/vendor', 'records/rift.dbr', 0, 0, 0);
+            INSERT INTO placements(level_pk, entity_ordinal, record_pk, world_x, world_y, world_z) VALUES
+                (1, 0, 9, 1, 2, 3),
+                (2, 0, 13, 4, 5, 6);
+            """);
+
+        using var database = new CliDatabase(fixture.Path);
+        var item = database.Items.FindByRecordId("records/items/gearweapons/test.dbr")
+            ?? throw new InvalidOperationException();
+        var result = Assert.Single(new AcquisitionResolver(database.Acquisitions).Resolve([item]));
+        var vendor = Assert.Single(result.Methods, method => method.Kind == "vendor");
+        var monster = Assert.Single(result.Methods, method => method.Kind == "specificMonster");
+
+        Assert.Equal("world/vendor", Assert.Single(Assert.Single(vendor.Actors ?? []).Locations).Level);
+        Assert.Equal(
+            [
+                "records/items/loottables/specific.dbr",
+                "records/creatures/monster.dbr",
+                "records/proxies/monster.dbr"
+            ],
+            Assert.Single(monster.Routes ?? []).Path.Select(step => step.RecordId));
+        using var connection = _openReadOnly(fixture.Path);
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM record_references WHERE source_pk = 14";
+        Assert.Equal(0L, command.ExecuteScalar());
+    }
+
+    private static SqliteConnection _openReadOnly(string path)
+    {
+        var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path,
+            Mode = SqliteOpenMode.ReadOnly,
+            Pooling = false
+        }.ToString());
+        connection.Open();
+        return connection;
+    }
+}

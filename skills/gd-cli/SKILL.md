@@ -1,6 +1,6 @@
 ---
 name: gd-cli
-description: Query Grim Dawn game data with gd-cli. Use for item, affix, Ascended affix, compatibility, numeric range, effect, monster drop, quest graph, key map coordinate, schema, JMESPath, affix ranking, or BiS affix evaluation. Initialize automatically only when the CLI database is absent; never rebuild an existing database without an explicit user request.
+description: Query Grim Dawn game data with gd-cli. Use for item acquisition, vendor, random drop, monster-specific loot, recipe, affix, Ascended affix, compatibility, numeric range, effect, quest graph, key map coordinate, schema, JMESPath, affix ranking, or BiS affix evaluation. Initialize automatically only when the CLI database is absent; never rebuild an existing database without an explicit user request.
 ---
 
 # gd-cli
@@ -28,7 +28,7 @@ Before a query, run `gd-cli info`:
 | `affix <record-id>` | Get one affix by exact record ID. |
 | `ascended-affixes` | Query Ascended affixes by game-native equipment category. |
 | `ascended-affix <record-id>` | Get one Ascended affix by exact record ID. |
-| `drops <item-name-or-record-id>` | Find monster-specific item drops and map locations. |
+| `acquisition <item-name-or-record-id>` | Find every known way to acquire an item. |
 | `quests` | Query quest definitions. |
 | `quest <quest-name-or-path>` | Get a quest graph, relevant actors, and key coordinates. |
 | `search <query>` | Search item and affix names or record IDs. |
@@ -48,7 +48,10 @@ Before a query, run `gd-cli info`:
 - Use `ascended-affixes --category <category>` for Ascended affixes. Read valid raw values from `info` or `schema`.
 - Keep normal and Ascended affix results separate. Combine them only in agent reasoning.
 - For BiS evaluation, default to sustained real-combat performance unless the user explicitly requests burst, one-shot, or single-hit optimization. Model the complete rotation, filler actions, WPS, and trigger frequency. Do not rank only the main skill's single hit.
-- Check `routesTruncated` before treating drop routes as complete.
+- Treat acquisition methods as additive. An item may have `vendor`, `specificMonster`, `randomDrop`, and `craft` methods.
+- For `craft`, inspect the recipe and its nested known sources.
+- `randomDrop` represents a randomized loot pool and intentionally does not enumerate every monster using that pool.
+- Check `routesTruncated` before treating `specificMonster` routes as complete.
 - Treat `quest.nodes` and `quest.edges` as a graph. Preserve branches, use entity coordinates only when present, and report unresolved references instead of guessing.
 - CLI-owned text is English. Parsed names use the language selected by `init`.
 - Queries read only the CLI database. `init` opens game files read-only with shared access, cleans up only its own temporary database, and never modifies game files.

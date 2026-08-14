@@ -40,6 +40,10 @@ internal sealed class DatabaseInfo
 
     public required long MiNameTagCount { get; init; }
 
+    public required long AcquisitionSourceCount { get; init; }
+
+    public required long RecipeCount { get; init; }
+
     public required string GameLanguage { get; init; }
 
     public required string GameDirectory { get; init; }

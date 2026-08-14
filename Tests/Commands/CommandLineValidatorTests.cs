@@ -36,4 +36,16 @@ public sealed class CommandLineValidatorTests
         Assert.Throws<CommandLineException>(() => CommandLineValidator.Validate(
             CommandLineParser.Parse(["ascended-affixes", "--rarity", "Rare"])));
     }
+
+    [Fact]
+    public void ValidateAllowsOnlyPagingForAcquisition()
+    {
+        CommandLineValidator.Validate(CommandLineParser.Parse(
+            ["acquisition", "item", "--offset", "10", "--limit", "5"]));
+
+        Assert.Throws<CommandLineException>(() => CommandLineValidator.Validate(
+            CommandLineParser.Parse(["acquisition", "item", "--rarity", "Rare"])));
+        Assert.Throws<CommandLineException>(() => CommandLineValidator.Validate(
+            CommandLineParser.Parse(["acquisition", "item", "--no-stats"])));
+    }
 }

@@ -2,7 +2,7 @@ namespace GdCli.Database;
 
 internal static class DatabaseSchema
 {
-    public const int Version = 3;
+    public const int Version = 4;
 
     public static IReadOnlyList<string> RequiredTables { get; } = Array.AsReadOnly<string>(
     [
@@ -13,14 +13,15 @@ internal static class DatabaseSchema
         "field_names",
         "item_fields",
         "record_references",
-        "drop_conditions",
+        "loot_conditions",
         "items",
         "affixes",
         "affix_item_classes",
         "ascended_affixes",
         "ascended_affix_categories",
         "ascended_skill_modifiers",
-        "monster_drops",
+        "acquisition_sources",
+        "recipes",
         "levels",
         "placements",
         "quests",
@@ -97,7 +98,7 @@ internal static class DatabaseSchema
             FOREIGN KEY (target_pk) REFERENCES records(id)
         ) WITHOUT ROWID;
 
-        CREATE TABLE drop_conditions (
+        CREATE TABLE loot_conditions (
             record_pk INTEGER NOT NULL,
             field_pk INTEGER NOT NULL,
             ordinal INTEGER NOT NULL,
@@ -158,12 +159,23 @@ internal static class DatabaseSchema
             FOREIGN KEY (modifier_pk) REFERENCES records(id)
         ) WITHOUT ROWID;
 
-        CREATE TABLE monster_drops (
+        CREATE TABLE acquisition_sources (
             item_pk INTEGER NOT NULL,
-            monster_pk INTEGER NOT NULL,
-            PRIMARY KEY (item_pk, monster_pk),
+            kind TEXT NOT NULL,
+            source_pk INTEGER,
+            CHECK (kind IN ('specificMonster', 'vendor', 'randomDrop')),
+            CHECK ((kind = 'randomDrop' AND source_pk IS NULL) OR
+                   (kind <> 'randomDrop' AND source_pk IS NOT NULL)),
             FOREIGN KEY (item_pk) REFERENCES items(record_pk) ON DELETE CASCADE,
-            FOREIGN KEY (monster_pk) REFERENCES records(id)
+            FOREIGN KEY (source_pk) REFERENCES records(id)
+        );
+
+        CREATE TABLE recipes (
+            result_item_pk INTEGER NOT NULL,
+            recipe_item_pk INTEGER NOT NULL,
+            PRIMARY KEY (result_item_pk, recipe_item_pk),
+            FOREIGN KEY (result_item_pk) REFERENCES items(record_pk) ON DELETE CASCADE,
+            FOREIGN KEY (recipe_item_pk) REFERENCES items(record_pk) ON DELETE CASCADE
         ) WITHOUT ROWID;
 
         CREATE TABLE levels (
@@ -318,7 +330,9 @@ internal static class DatabaseSchema
         CREATE INDEX entity_aliases_placed_idx ON entity_aliases(placed_pk);
         """;
 
-    public const string CreateReferenceIndexesSql = """
+    public const string CreateBuildIndexesSql = """
         CREATE INDEX references_target_idx ON record_references(target_pk);
+        CREATE UNIQUE INDEX acquisition_sources_unique_idx
+            ON acquisition_sources(item_pk, kind, COALESCE(source_pk, 0));
         """;
 }
