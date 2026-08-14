@@ -85,6 +85,15 @@ internal static class CommandCatalog
                 ["item-name-or-record-id"],
                 ["--offset N", "--limit N", "--all"]),
             _command(
+                "quests",
+                "Query quests.",
+                options: ["--offset N", "--limit N", "--all"]),
+            _command(
+                "quest",
+                "Get quest graph, actors, and key coordinates.",
+                ["quest-name-or-path"],
+                ["--offset N", "--limit N", "--all"]),
+            _command(
                 "search",
                 "Search item and affix names or record IDs.",
                 ["query"],

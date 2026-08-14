@@ -28,6 +28,7 @@ internal sealed class CliDatabase : IDisposable
             Affixes = new AffixRepository(_connection);
             AscendedAffixes = new AscendedAffixRepository(_connection);
             Search = new SearchRepository(_connection);
+            Quests = new QuestRepository(_connection);
         }
         catch (SqliteException exception)
         {
@@ -53,6 +54,8 @@ internal sealed class CliDatabase : IDisposable
 
     public SearchRepository Search { get; }
 
+    public QuestRepository Quests { get; }
+
     public DatabaseInfo GetInfo()
     {
         var file = new FileInfo(Path);
@@ -72,6 +75,9 @@ internal sealed class CliDatabase : IDisposable
                 "SELECT COUNT(DISTINCT modifier_pk) FROM ascended_skill_modifiers"),
             LevelCount = _scalar<long>("SELECT COUNT(*) FROM levels"),
             PlacementCount = _scalar<long>("SELECT COUNT(*) FROM placements"),
+            QuestCount = _scalar<long>("SELECT COUNT(*) FROM quests"),
+            QuestNodeCount = _scalar<long>("SELECT COUNT(*) FROM quest_nodes"),
+            QuestEntityCount = _scalar<long>("SELECT COUNT(*) FROM quest_entities"),
             MiCount = miRecordCount,
             MiRecordCount = miRecordCount,
             MiNameTagCount = _scalar<long>("""

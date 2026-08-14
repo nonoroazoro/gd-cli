@@ -28,6 +28,12 @@ internal sealed class DatabaseInfo
 
     public required long PlacementCount { get; init; }
 
+    public required long QuestCount { get; init; }
+
+    public required long QuestNodeCount { get; init; }
+
+    public required long QuestEntityCount { get; init; }
+
     public required long MiCount { get; init; }
 
     public required long MiRecordCount { get; init; }

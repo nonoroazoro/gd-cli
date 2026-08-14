@@ -1,6 +1,6 @@
 # gd-cli
 
-Agent-first CLI for querying Grim Dawn items, affixes, monster-specific drops, and map coordinates. It returns stable, compact JSON and is not designed for interactive human use.
+Agent-first CLI for querying Grim Dawn items, affixes, monster-specific drops, quests, and key map coordinates. It returns stable, compact JSON and is not designed for interactive human use.
 
 ## AI agent setup
 
@@ -53,6 +53,8 @@ gd-cli affix <record-id> [--no-stats]
 gd-cli ascended-affixes [filters] [paging]
 gd-cli ascended-affix <record-id> [--no-stats]
 gd-cli drops <item-name-or-record-id> [paging]
+gd-cli quests [paging]
+gd-cli quest <quest-name-or-path> [paging]
 gd-cli search <query> [filters] [paging]
 ```
 
@@ -96,9 +98,15 @@ Ascended affixes use the game's broader equipment categories. Query them separat
 
 See [BiS Affix Evaluation](skills/gd-cli/references/affix-ranking.md) for the agent workflow.
 
+### Quests
+
+`quest` returns task, objective, event, conversation, and script nodes as a graph. Relevant actors and targets include fixed map coordinates when available. Branches remain explicit, and unresolved references are reported instead of guessed.
+
+The database stores structured quest metadata only. It does not store full dialogue, Lua source, or precomputed routes.
+
 ## Game data and safety
 
-The repository directly parses Grim Dawn ARC, ARZ, tags, and level map files. `lz4net` decompresses LZ4 archive blocks. SQLite storage uses `Microsoft.Data.Sqlite`; `JmesPath.Net` implements `--query`.
+The repository directly parses Grim Dawn ARC, ARZ, tags, level maps, quests, conversations, and structured Lua quest metadata. `lz4net` decompresses LZ4 archive blocks. SQLite storage uses `Microsoft.Data.Sqlite`; `JmesPath.Net` implements `--query`.
 
 Initialization opens game files read-only with shared access. It writes only the CLI-owned database, cleans up only its own temporary files, and never modifies game files.
 

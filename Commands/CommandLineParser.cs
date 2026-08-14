@@ -162,6 +162,11 @@ internal static class CommandLineParser
                     throw new CommandLineException("drops requires an item name or record ID.");
                 options.DropQuery = string.Join(' ', positionals);
                 break;
+            case "quest":
+                if (positionals.Count == 0)
+                    throw new CommandLineException("quest requires a quest name or path.");
+                options.QuestQuery = string.Join(' ', positionals);
+                break;
             default:
                 if (positionals.Count > 0)
                     throw new CommandLineException($"{options.Command} does not accept positional arguments.");

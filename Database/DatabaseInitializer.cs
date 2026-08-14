@@ -43,6 +43,7 @@ internal static class DatabaseInitializer
             AscendedAffixBuilder.Build(connection, transaction);
             _execute(connection, transaction, DatabaseSchema.CreateReferenceIndexesSql);
             MonsterDropBuilder.Build(connection, transaction);
+            QuestCatalogBuilder.Build(connection, transaction, install);
             _importMaps(connection, transaction, install);
             transaction.Commit();
         }
@@ -101,6 +102,7 @@ internal static class DatabaseInitializer
                 PRIMARY KEY (source_pk, field_pk, ordinal)
             ) WITHOUT ROWID;
             """);
+        using var questResourceIndex = new QuestResourceIndexWriter(connection, transaction);
         var records = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         var fieldNames = new Dictionary<string, long>(StringComparer.Ordinal);
         using var insertRecord = _command(connection, transaction, """
@@ -193,6 +195,7 @@ internal static class DatabaseInitializer
                 deleteConditions.ExecuteNonQuery();
                 deleteReferences.Parameters["@record"].Value = recordPk;
                 deleteReferences.ExecuteNonQuery();
+                questResourceIndex.Reset(recordPk);
 
                 var storeFields = _shouldStoreFields(normalizedRecord);
                 foreach (var field in record.Fields)
@@ -224,6 +227,7 @@ internal static class DatabaseInitializer
                         referenceTarget.Value = _normalizeRecord(field.TextValue);
                         insertReference.ExecuteNonQuery();
                     }
+                    questResourceIndex.Capture(recordPk, field.TextValue);
                 }
             }
         }
@@ -308,6 +312,8 @@ internal static class DatabaseInitializer
             SELECT R.id, R.record_id
             FROM records R
             WHERE R.id IN (SELECT monster_pk FROM monster_drops)
+               OR R.id IN (SELECT record_pk FROM quest_entities)
+               OR R.id IN (SELECT placed_pk FROM entity_aliases)
                OR ((R.record_id LIKE 'records/proxies/%' OR R.record_id LIKE 'records/creatures/%')
                     AND EXISTS (SELECT 1 FROM record_references RR WHERE RR.source_pk = R.id))
             """);
@@ -395,6 +401,9 @@ internal static class DatabaseInitializer
             Levels = _scalar(connection, "SELECT COUNT(*) FROM levels"),
             Placements = _scalar(connection, "SELECT COUNT(*) FROM placements"),
             MonsterDrops = _scalar(connection, "SELECT COUNT(*) FROM monster_drops"),
+            Quests = _scalar(connection, "SELECT COUNT(*) FROM quests"),
+            QuestNodes = _scalar(connection, "SELECT COUNT(*) FROM quest_nodes"),
+            QuestEntities = _scalar(connection, "SELECT COUNT(*) FROM quest_entities"),
             FileSize = new FileInfo(path).Length
         };
     }

@@ -1,6 +1,6 @@
 ---
 name: gd-cli
-description: Query Grim Dawn game data with gd-cli. Use for item, affix, Ascended affix, compatibility, numeric range, effect, monster drop, map coordinate, schema, JMESPath, affix ranking, or BiS affix evaluation. Initialize automatically only when the CLI database is absent; never rebuild an existing database without an explicit user request.
+description: Query Grim Dawn game data with gd-cli. Use for item, affix, Ascended affix, compatibility, numeric range, effect, monster drop, quest graph, key map coordinate, schema, JMESPath, affix ranking, or BiS affix evaluation. Initialize automatically only when the CLI database is absent; never rebuild an existing database without an explicit user request.
 ---
 
 # gd-cli
@@ -29,6 +29,8 @@ Before a query, run `gd-cli info`:
 | `ascended-affixes` | Query Ascended affixes by game-native equipment category. |
 | `ascended-affix <record-id>` | Get one Ascended affix by exact record ID. |
 | `drops <item-name-or-record-id>` | Find monster-specific item drops and map locations. |
+| `quests` | Query quest definitions. |
+| `quest <quest-name-or-path>` | Get a quest graph, relevant actors, and key coordinates. |
 | `search <query>` | Search item and affix names or record IDs. |
 
 ## Global flags
@@ -47,6 +49,7 @@ Before a query, run `gd-cli info`:
 - Keep normal and Ascended affix results separate. Combine them only in agent reasoning.
 - For BiS evaluation, default to sustained real-combat performance unless the user explicitly requests burst, one-shot, or single-hit optimization. Model the complete rotation, filler actions, WPS, and trigger frequency. Do not rank only the main skill's single hit.
 - Check `routesTruncated` before treating drop routes as complete.
+- Treat `quest.nodes` and `quest.edges` as a graph. Preserve branches, use entity coordinates only when present, and report unresolved references instead of guessing.
 - CLI-owned text is English. Parsed names use the language selected by `init`.
 - Queries read only the CLI database. `init` opens game files read-only with shared access, cleans up only its own temporary database, and never modifies game files.
 - Use `<command-path> --help` for node-specific help. Use `tree` and `schema` for discovery and raw values.

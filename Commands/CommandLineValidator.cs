@@ -78,6 +78,12 @@ internal static class CommandLineValidator
                     throw new CommandLineException("--category is not valid for search.");
                 break;
             case "drops":
+            case "quest":
+                _rejectFilters(options);
+                _rejectGameLanguage(options);
+                _rejectNoStats(options);
+                break;
+            case "quests":
                 _rejectFilters(options);
                 _rejectGameLanguage(options);
                 _rejectNoStats(options);

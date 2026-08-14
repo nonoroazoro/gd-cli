@@ -168,6 +168,11 @@ internal sealed class CliApplication
                 return (int)ExitCode.Success;
             case "drops":
                 return _writeDrops(database, options);
+            case "quests":
+                _writeQuests(database, options);
+                return (int)ExitCode.Success;
+            case "quest":
+                return _writeQuest(database, options);
             default:
                 return _writeError(ExitCode.InvalidArguments, $"Unknown command: {options.Command}");
         }
@@ -305,6 +310,30 @@ internal sealed class CliApplication
         var resolver = new DropResolver(database);
         var data = resolver.Resolve(page);
         _writeEnvelope(database, options, "drops", total, data);
+        return (int)ExitCode.Success;
+    }
+
+    private void _writeQuests(CliDatabase database, CommandLineOptions options)
+    {
+        var total = database.Quests.Count();
+        var page = database.Quests.Load(options.Offset, options.All ? null : options.Limit);
+        _writeEnvelope(database, options, "quests", total, page);
+    }
+
+    private int _writeQuest(CliDatabase database, CommandLineOptions options)
+    {
+        var query = options.QuestQuery ?? string.Empty;
+        var exact = database.Quests.CountMatches(query, true) > 0;
+        var total = database.Quests.CountMatches(query, exact);
+        if (total == 0)
+            return _writeError(ExitCode.RecordNotFound, $"Quest was not found: {query}");
+        var page = database.Quests.LoadMatches(
+            query,
+            exact,
+            options.Offset,
+            options.All ? null : options.Limit);
+        database.Quests.PopulateDetails(page);
+        _writeEnvelope(database, options, "quest", total, page);
         return (int)ExitCode.Success;
     }
 

@@ -56,5 +56,7 @@ internal sealed class CommandLineOptions
 
     public string? DropQuery { get; set; }
 
+    public string? QuestQuery { get; set; }
+
     public bool NoStats { get; set; }
 }

@@ -51,6 +51,9 @@ internal sealed class GameInstall
                 ? englishTags
                 : _findFile(resourcesDirectory, $"Text_{normalizedLanguage}.arc");
             var levels = _findFile(resourcesDirectory, "Levels.arc");
+            var quests = _findFile(resourcesDirectory, "Quests.arc");
+            var conversations = _findFile(resourcesDirectory, "Conversations.arc");
+            var scripts = _findFile(resourcesDirectory, "Scripts.arc");
             sources.Add(new GameDataSource
             {
                 Name = entry.Name,
@@ -59,7 +62,10 @@ internal sealed class GameInstall
                 ArzPath = arzPath,
                 EnglishTagsPath = englishTags,
                 LocalizedTagsPath = localizedTags,
-                LevelsPath = levels
+                LevelsPath = levels,
+                QuestsPath = quests,
+                ConversationsPath = conversations,
+                ScriptsPath = scripts
             });
         }
 

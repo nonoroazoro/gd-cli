@@ -64,4 +64,12 @@ public sealed class CommandLineParserTests
         Assert.Equal("WeaponMelee_Mace", affixes.ItemClass);
         Assert.Equal("oneHandMelee", ascended.AscendedCategory);
     }
+
+    [Fact]
+    public void ParseReadsMultiWordQuestName()
+    {
+        var options = CommandLineParser.Parse(["quest", "Into", "the", "Breach"]);
+
+        Assert.Equal("Into the Breach", options.QuestQuery);
+    }
 }

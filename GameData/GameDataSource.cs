@@ -15,4 +15,10 @@ internal sealed class GameDataSource
     public string? LocalizedTagsPath { get; init; }
 
     public string? LevelsPath { get; init; }
+
+    public string? QuestsPath { get; init; }
+
+    public string? ConversationsPath { get; init; }
+
+    public string? ScriptsPath { get; init; }
 }

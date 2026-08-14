@@ -2,7 +2,7 @@ namespace GdCli.Database;
 
 internal static class DatabaseSchema
 {
-    public const int Version = 2;
+    public const int Version = 3;
 
     public static IReadOnlyList<string> RequiredTables { get; } = Array.AsReadOnly<string>(
     [
@@ -22,7 +22,15 @@ internal static class DatabaseSchema
         "ascended_skill_modifiers",
         "monster_drops",
         "levels",
-        "placements"
+        "placements",
+        "quests",
+        "quest_nodes",
+        "quest_actions",
+        "quest_conditions",
+        "quest_edges",
+        "quest_entities",
+        "entity_aliases",
+        "quest_unresolved_references"
     ]);
 
     public static readonly string CreateSql = $$"""
@@ -180,6 +188,121 @@ internal static class DatabaseSchema
             FOREIGN KEY (level_pk) REFERENCES levels(id) ON DELETE CASCADE,
             FOREIGN KEY (record_pk) REFERENCES records(id)
         ) WITHOUT ROWID;
+
+        CREATE TABLE quests (
+            id INTEGER PRIMARY KEY,
+            quest_path TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            source_name TEXT NOT NULL,
+            uid INTEGER NOT NULL,
+            flags INTEGER NOT NULL,
+            region TEXT NOT NULL,
+            name TEXT NOT NULL
+        );
+
+        CREATE TABLE quest_nodes (
+            id INTEGER PRIMARY KEY,
+            quest_pk INTEGER NOT NULL,
+            parent_pk INTEGER,
+            ordinal INTEGER NOT NULL,
+            kind TEXT NOT NULL,
+            phase TEXT NOT NULL,
+            uid INTEGER,
+            link_id INTEGER,
+            is_blocker INTEGER,
+            dont_propagate INTEGER,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            flags INTEGER NOT NULL,
+            condition_operator TEXT NOT NULL,
+            origin_path TEXT NOT NULL,
+            FOREIGN KEY (quest_pk) REFERENCES quests(id) ON DELETE CASCADE,
+            FOREIGN KEY (parent_pk) REFERENCES quest_nodes(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE quest_actions (
+            node_pk INTEGER NOT NULL,
+            ordinal INTEGER NOT NULL,
+            kind TEXT NOT NULL,
+            quest_path TEXT,
+            task_uid INTEGER,
+            objective_uid INTEGER,
+            record_id TEXT,
+            token TEXT,
+            function_name TEXT,
+            text_value TEXT,
+            numeric_value REAL,
+            secondary_numeric_value REAL,
+            tertiary_numeric_value REAL,
+            boolean_value INTEGER,
+            PRIMARY KEY (node_pk, ordinal),
+            FOREIGN KEY (node_pk) REFERENCES quest_nodes(id) ON DELETE CASCADE
+        ) WITHOUT ROWID;
+
+        CREATE TABLE quest_conditions (
+            node_pk INTEGER NOT NULL,
+            ordinal INTEGER NOT NULL,
+            kind TEXT NOT NULL,
+            comparison INTEGER,
+            quest_path TEXT,
+            task_uid INTEGER,
+            objective_uid INTEGER,
+            record_id TEXT,
+            token TEXT,
+            function_name TEXT,
+            text_value TEXT,
+            numeric_value REAL,
+            secondary_numeric_value REAL,
+            tertiary_numeric_value REAL,
+            boolean_value INTEGER,
+            PRIMARY KEY (node_pk, ordinal),
+            FOREIGN KEY (node_pk) REFERENCES quest_nodes(id) ON DELETE CASCADE
+        ) WITHOUT ROWID;
+
+        CREATE TABLE quest_edges (
+            id INTEGER PRIMARY KEY,
+            quest_pk INTEGER NOT NULL,
+            source_node_pk INTEGER NOT NULL,
+            target_quest_path TEXT NOT NULL COLLATE NOCASE,
+            target_task_uid INTEGER,
+            kind TEXT NOT NULL,
+            origin_path TEXT NOT NULL,
+            FOREIGN KEY (quest_pk) REFERENCES quests(id) ON DELETE CASCADE,
+            FOREIGN KEY (source_node_pk) REFERENCES quest_nodes(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE quest_entities (
+            id INTEGER PRIMARY KEY,
+            quest_pk INTEGER NOT NULL,
+            node_pk INTEGER,
+            record_pk INTEGER NOT NULL,
+            role TEXT NOT NULL,
+            origin_path TEXT NOT NULL,
+            UNIQUE (quest_pk, node_pk, record_pk, role, origin_path),
+            FOREIGN KEY (quest_pk) REFERENCES quests(id) ON DELETE CASCADE,
+            FOREIGN KEY (node_pk) REFERENCES quest_nodes(id) ON DELETE CASCADE,
+            FOREIGN KEY (record_pk) REFERENCES records(id)
+        );
+
+        CREATE TABLE entity_aliases (
+            alias_pk INTEGER NOT NULL,
+            placed_pk INTEGER NOT NULL,
+            origin_path TEXT NOT NULL,
+            PRIMARY KEY (alias_pk, placed_pk, origin_path),
+            FOREIGN KEY (alias_pk) REFERENCES records(id),
+            FOREIGN KEY (placed_pk) REFERENCES records(id)
+        ) WITHOUT ROWID;
+
+        CREATE TABLE quest_unresolved_references (
+            id INTEGER PRIMARY KEY,
+            quest_pk INTEGER NOT NULL,
+            node_pk INTEGER,
+            kind TEXT NOT NULL,
+            value TEXT NOT NULL,
+            origin_path TEXT NOT NULL,
+            UNIQUE (quest_pk, node_pk, kind, value, origin_path),
+            FOREIGN KEY (quest_pk) REFERENCES quests(id) ON DELETE CASCADE,
+            FOREIGN KEY (node_pk) REFERENCES quest_nodes(id) ON DELETE CASCADE
+        );
         """;
 
     public const string CreateIndexesSql = """
@@ -187,6 +310,12 @@ internal static class DatabaseSchema
         CREATE INDEX affixes_filter_idx ON affixes(rarity, kind, required_level);
         CREATE INDEX ascended_categories_filter_idx ON ascended_affix_categories(category, affix_pk);
         CREATE INDEX placements_record_idx ON placements(record_pk);
+        CREATE INDEX quests_name_idx ON quests(name COLLATE NOCASE);
+        CREATE INDEX quest_nodes_quest_idx ON quest_nodes(quest_pk, ordinal);
+        CREATE INDEX quest_edges_quest_idx ON quest_edges(quest_pk, source_node_pk);
+        CREATE INDEX quest_entities_quest_idx ON quest_entities(quest_pk, node_pk);
+        CREATE INDEX quest_unresolved_quest_idx ON quest_unresolved_references(quest_pk, node_pk);
+        CREATE INDEX entity_aliases_placed_idx ON entity_aliases(placed_pk);
         """;
 
     public const string CreateReferenceIndexesSql = """

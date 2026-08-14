@@ -35,6 +35,9 @@ internal sealed class SchemaDescription
             ["ascendedSkillModifierCount"] = "number of distinct Ascended skill modifiers",
             ["levelCount"] = "number of map levels",
             ["placementCount"] = "number of relevant map placements",
+            ["questCount"] = "number of quest definitions",
+            ["questNodeCount"] = "number of quest graph nodes",
+            ["questEntityCount"] = "number of quest entity relations",
             ["miCount"] = "compatibility alias of miRecordCount",
             ["miRecordCount"] = "number of MI item records",
             ["miNameTagCount"] = "number of distinct name tags containing MI records",
@@ -103,6 +106,17 @@ internal sealed class SchemaDescription
             ["unmodeledFields"] = "raw fields not modeled by the range engine"
         };
 
+    public IReadOnlyDictionary<string, string> QuestFields { get; init; } =
+        new Dictionary<string, string>
+        {
+            ["questPath"] = "stable game quest path",
+            ["name"] = "localized quest name",
+            ["nodes"] = "ordered task, objective, event, conversation, and script nodes with hierarchy, links, and task flags",
+            ["edges"] = "quest and task state transitions",
+            ["entities"] = "quest actors and targets with available key coordinates",
+            ["unresolvedReferences"] = "references that could not be mapped to a game record or actor"
+        };
+
     public IReadOnlyDictionary<string, string> AscendedAffixFields { get; init; } =
         new Dictionary<string, string>
         {
@@ -130,6 +144,8 @@ internal sealed class SchemaDescription
             ["jmesPathQuery"] = true,
             ["itemAffixCompatibility"] = true,
             ["ascendedAffixes"] = true,
+            ["questGraph"] = true,
+            ["questKeyLocations"] = true,
             ["sourceFile"] = false
         };
 

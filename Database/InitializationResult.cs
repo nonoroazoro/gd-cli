@@ -34,5 +34,11 @@ internal sealed class InitializationResult
 
     public required long MonsterDrops { get; init; }
 
+    public required long Quests { get; init; }
+
+    public required long QuestNodes { get; init; }
+
+    public required long QuestEntities { get; init; }
+
     public required long FileSize { get; init; }
 }
