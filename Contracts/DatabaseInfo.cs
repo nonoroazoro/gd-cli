@@ -24,6 +24,8 @@ internal sealed class DatabaseInfo
 
     public required long AscendedSkillModifierCount { get; init; }
 
+    public required long SkillModifierCount { get; init; }
+
     public required long VariantCount { get; init; }
 
     public required long VariantSkillModifierCount { get; init; }

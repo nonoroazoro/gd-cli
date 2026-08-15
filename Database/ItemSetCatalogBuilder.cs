@@ -32,6 +32,26 @@ internal static class ItemSetCatalogBuilder
             JOIN items I ON I.record_pk = RR.target_pk
             JOIN field_names N ON N.id = RR.field_pk
             WHERE N.name = 'setMembers';
+
+            INSERT INTO item_set_bonuses(
+                set_pk, required_pieces, field_ordinal, has_skill_modifiers)
+            SELECT
+                S.record_pk,
+                F.ordinal + 1,
+                F.ordinal,
+                MAX(CASE WHEN N.name = 'itemSkillModifierControl'
+                              AND F.numeric_value <> 0 THEN 1 ELSE 0 END)
+            FROM item_sets S
+            JOIN record_fields F ON F.record_pk = S.record_pk
+            JOIN field_names N ON N.id = F.field_pk
+            WHERE F.ordinal > 0
+              AND F.ordinal < (
+                  SELECT COUNT(*)
+                  FROM item_set_members M
+                  WHERE M.set_pk = S.record_pk
+              )
+              AND N.name <> 'setMembers'
+            GROUP BY S.record_pk, F.ordinal;
             """);
     }
 

@@ -58,7 +58,7 @@ public sealed class AffixRepositoryTests
         Assert.Equal("ascended", affix.Family);
         Assert.Equal(["oneHandMelee"], affix.Categories);
         Assert.Equal(["affix"], affix.Groups);
-        Assert.Single(database.AffixSkillModifiers.Load([affix.RecordId])[affix.RecordId]);
+        Assert.Single(database.RecordSkillModifiers.Load([affix.RecordId])[affix.RecordId]);
     }
 
     [Fact]

@@ -42,7 +42,7 @@ internal static class DatabaseInitializer
             AffixCompatibilityBuilder.Build(connection, transaction);
             AscendedAffixBuilder.Build(connection, transaction);
             ItemVariantCatalogBuilder.Build(connection, transaction);
-            AffixSkillModifierBuilder.Build(connection, transaction);
+            RecordSkillModifierBuilder.Build(connection, transaction);
             SkillModifierFieldPruner.Prune(connection, transaction);
             _execute(connection, transaction, DatabaseSchema.CreateBuildIndexesSql);
             AcquisitionCatalogBuilder.Build(connection, transaction);
@@ -367,9 +367,9 @@ internal static class DatabaseInitializer
             Affixes = _scalar(connection, "SELECT COUNT(*) FROM affixes WHERE family = 'standard'"),
             AscendedAffixes = _scalar(connection, "SELECT COUNT(*) FROM affixes WHERE family = 'ascended'"),
             Variants = _scalar(connection, "SELECT COUNT(*) FROM affixes WHERE family = 'variant'"),
-            AffixSkillModifiers = _scalar(
+            SkillModifiers = _scalar(
                 connection,
-                "SELECT COUNT(DISTINCT modifier_pk) FROM affix_skill_modifiers"),
+                "SELECT COUNT(DISTINCT modifier_pk) FROM record_skill_modifiers"),
             AffixCompatibilityRelations = _scalar(connection, "SELECT COUNT(*) FROM affix_item_classes"),
             Levels = _scalar(connection, "SELECT COUNT(*) FROM levels"),
             Placements = _scalar(connection, "SELECT COUNT(*) FROM placements"),

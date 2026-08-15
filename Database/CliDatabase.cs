@@ -27,7 +27,7 @@ internal sealed class CliDatabase : IDisposable
             ItemSets = new ItemSetRepository(_connection);
             ItemVariants = new ItemVariantRepository(_connection);
             Affixes = new AffixRepository(_connection);
-            AffixSkillModifiers = new AffixSkillModifierRepository(_connection);
+            RecordSkillModifiers = new RecordSkillModifierRepository(_connection);
             Acquisitions = new AcquisitionRepository(_connection);
             Quests = new QuestRepository(_connection);
         }
@@ -55,7 +55,7 @@ internal sealed class CliDatabase : IDisposable
 
     public AffixRepository Affixes { get; }
 
-    public AffixSkillModifierRepository AffixSkillModifiers { get; }
+    public RecordSkillModifierRepository RecordSkillModifiers { get; }
 
     public AcquisitionRepository Acquisitions { get; }
 
@@ -78,6 +78,7 @@ internal sealed class CliDatabase : IDisposable
             AffixCount = _scalar<long>("SELECT COUNT(*) FROM affixes WHERE family = 'standard'"),
             AscendedAffixCount = _scalar<long>("SELECT COUNT(*) FROM affixes WHERE family = 'ascended'"),
             AscendedSkillModifierCount = _countSkillModifiers("ascended"),
+            SkillModifierCount = _scalar<long>("SELECT COUNT(DISTINCT modifier_pk) FROM record_skill_modifiers"),
             VariantCount = _scalar<long>("SELECT COUNT(*) FROM affixes WHERE family = 'variant'"),
             VariantSkillModifierCount = _countSkillModifiers("variant"),
             LevelCount = _scalar<long>("SELECT COUNT(*) FROM levels"),
@@ -250,8 +251,8 @@ internal sealed class CliDatabase : IDisposable
         using var command = _connection.CreateCommand();
         command.CommandText = """
             SELECT COUNT(DISTINCT ASM.modifier_pk)
-            FROM affix_skill_modifiers ASM
-            JOIN affixes A ON A.record_pk = ASM.affix_pk
+            FROM record_skill_modifiers ASM
+            JOIN affixes A ON A.record_pk = ASM.owner_pk
             WHERE A.family = @family
             """;
         command.Parameters.AddWithValue("@family", family);

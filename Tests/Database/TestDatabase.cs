@@ -53,7 +53,7 @@ internal sealed class TestDatabase : IDisposable
             INSERT INTO ascended_affix_categories(affix_pk, category, group_name) VALUES
                 (900, 'oneHandMelee', 'affix');
 
-            INSERT INTO affix_skill_modifiers(affix_pk, modifier_pk, ordinal, skill_pk) VALUES
+            INSERT INTO record_skill_modifiers(owner_pk, modifier_pk, ordinal, skill_pk) VALUES
                 (900, 901, 1, NULL);
             """);
         _execute(connection, GdCli.Database.DatabaseSchema.CreateIndexesSql);

@@ -3,6 +3,8 @@ using GdCli.Contracts;
 using GdCli.Database;
 using GdCli.Features.Acquisition;
 using GdCli.Features.Affixes;
+using GdCli.Features.Items;
+using GdCli.Features.SkillModifiers;
 
 namespace GdCli.Application;
 
@@ -10,11 +12,15 @@ internal sealed class ItemsCommand
 {
     private readonly AffixDetailLoader _affixDetails;
     private readonly CliDatabase _database;
+    private readonly ItemSetBonusLoader _itemSetBonuses;
+    private readonly SkillModifierLoader _skillModifiers;
 
     public ItemsCommand(CliDatabase database)
     {
         _database = database;
         _affixDetails = new AffixDetailLoader(database);
+        _itemSetBonuses = new ItemSetBonusLoader(database);
+        _skillModifiers = new SkillModifierLoader(database);
     }
 
     public object Execute(CommandLineOptions options)
@@ -70,7 +76,8 @@ internal sealed class ItemsCommand
         {
             _populateRelations(page, !options.NoStats);
             itemSets = _database.ItemSets.LoadForItems(page.Select(item => item.RecordId));
-            _populateSets(itemSets, !options.NoStats);
+            if (!options.NoStats)
+                _itemSetBonuses.Populate(itemSets);
         }
 
         return QueryEnvelopeFactory.CreateItems(_database, options, total, page, itemSets);
@@ -83,10 +90,18 @@ internal sealed class ItemsCommand
         var stats = includeStats
             ? _database.LoadStats(items.Select(item => item.RecordId))
             : null;
+        var modifiers = includeStats
+            ? _skillModifiers.Load(items.Select(item => item.RecordId))
+            : null;
         foreach (var item in items)
         {
             if (stats != null)
                 item.Stats = stats.GetValueOrDefault(item.RecordId) ?? [];
+            if (modifiers != null)
+            {
+                var skillModifiers = modifiers.GetValueOrDefault(item.RecordId);
+                item.SkillModifiers = skillModifiers is { Count: > 0 } ? skillModifiers : null;
+            }
             var sources = miSources.GetValueOrDefault(item.RecordId);
             item.MiSources = sources is { Count: > 0 } ? sources : null;
         }
@@ -110,15 +125,5 @@ internal sealed class ItemsCommand
             item.Variants = variants.GetValueOrDefault(item.RecordId) ?? [];
             item.Acquisition = acquisitions[item.RecordId];
         }
-    }
-
-    private void _populateSets(IReadOnlyList<ItemSetRecord> itemSets, bool includeStats)
-    {
-        if (!includeStats || itemSets.Count == 0)
-            return;
-
-        var stats = _database.LoadStats(itemSets.Select(itemSet => itemSet.RecordId));
-        foreach (var itemSet in itemSets)
-            itemSet.Stats = stats.GetValueOrDefault(itemSet.RecordId) ?? [];
     }
 }

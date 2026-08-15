@@ -41,13 +41,13 @@ public sealed class ItemVariantCatalogBuilderTests
         fixture.Execute((connection, transaction) =>
         {
             ItemVariantCatalogBuilder.Build(connection, transaction);
-            AffixSkillModifierBuilder.Build(connection, transaction);
+            RecordSkillModifierBuilder.Build(connection, transaction);
         });
 
         using var database = new CliDatabase(fixture.Path);
         var variants = database.ItemVariants.LoadForItems(["records/items/b.dbr"]);
         var variant = Assert.Single(variants["records/items/b.dbr"]);
-        var modifier = Assert.Single(database.AffixSkillModifiers.Load([variant.RecordId])[variant.RecordId]);
+        var modifier = Assert.Single(database.RecordSkillModifiers.Load([variant.RecordId])[variant.RecordId]);
 
         Assert.Equal("records/items/lootaffixes/prefixunique/variant.dbr", variant.RecordId);
         Assert.Equal("prefix", variant.Kind);

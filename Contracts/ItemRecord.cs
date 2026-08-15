@@ -29,6 +29,9 @@ internal sealed class ItemRecord
     public IReadOnlyList<RawStat>? Stats { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<SkillModifier>? SkillModifiers { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<ItemVariantRecord>? Variants { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

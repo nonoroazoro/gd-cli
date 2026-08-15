@@ -1,6 +1,6 @@
 namespace GdCli.Contracts;
 
-internal sealed class AffixSkillModifier
+internal sealed class SkillModifier
 {
     public required int Ordinal { get; init; }
 

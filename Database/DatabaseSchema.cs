@@ -2,7 +2,7 @@ namespace GdCli.Database;
 
 internal static class DatabaseSchema
 {
-    public const int Version = 5;
+    public const int Version = 6;
 
     public static IReadOnlyList<string> RequiredTables { get; } = Array.AsReadOnly<string>(
     [
@@ -16,11 +16,12 @@ internal static class DatabaseSchema
         "items",
         "item_sets",
         "item_set_members",
+        "item_set_bonuses",
         "affixes",
         "affix_item_classes",
         "ascended_affix_categories",
         "item_variants",
-        "affix_skill_modifiers",
+        "record_skill_modifiers",
         "acquisition_sources",
         "recipes",
         "levels",
@@ -127,6 +128,19 @@ internal static class DatabaseSchema
             FOREIGN KEY (item_pk) REFERENCES items(record_pk) ON DELETE CASCADE
         ) WITHOUT ROWID;
 
+        CREATE TABLE item_set_bonuses (
+            set_pk INTEGER NOT NULL,
+            required_pieces INTEGER NOT NULL,
+            field_ordinal INTEGER NOT NULL,
+            has_skill_modifiers INTEGER NOT NULL,
+            PRIMARY KEY (set_pk, required_pieces),
+            UNIQUE (set_pk, field_ordinal),
+            FOREIGN KEY (set_pk) REFERENCES item_sets(record_pk) ON DELETE CASCADE,
+            CHECK (required_pieces > 0),
+            CHECK (field_ordinal >= 0),
+            CHECK (has_skill_modifiers IN (0, 1))
+        ) WITHOUT ROWID;
+
         CREATE TABLE affixes (
             record_pk INTEGER PRIMARY KEY,
             family TEXT NOT NULL CHECK (family IN ('standard', 'ascended', 'variant')),
@@ -165,13 +179,13 @@ internal static class DatabaseSchema
             FOREIGN KEY (source_pk) REFERENCES records(id)
         ) WITHOUT ROWID;
 
-        CREATE TABLE affix_skill_modifiers (
-            affix_pk INTEGER NOT NULL,
+        CREATE TABLE record_skill_modifiers (
+            owner_pk INTEGER NOT NULL,
             modifier_pk INTEGER NOT NULL,
             ordinal INTEGER NOT NULL,
             skill_pk INTEGER,
-            PRIMARY KEY (affix_pk, ordinal),
-            FOREIGN KEY (affix_pk) REFERENCES affixes(record_pk) ON DELETE CASCADE,
+            PRIMARY KEY (owner_pk, ordinal, modifier_pk),
+            FOREIGN KEY (owner_pk) REFERENCES records(id) ON DELETE CASCADE,
             FOREIGN KEY (modifier_pk) REFERENCES records(id),
             FOREIGN KEY (skill_pk) REFERENCES records(id)
         ) WITHOUT ROWID;

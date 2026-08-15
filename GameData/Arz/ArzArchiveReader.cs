@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using System.Text;
 
 namespace GdCli.GameData.Arz;
@@ -64,78 +63,12 @@ internal sealed class ArzArchiveReader : IDisposable
         var compressed = new byte[header.CompressedSize];
         _stream.ReadExactly(compressed);
         var data = LZ4.LZ4Codec.Decode(compressed, 0, compressed.Length, header.UncompressedSize);
-        var fields = new List<ArzField>();
-        var fieldOrdinals = new Dictionary<string, int>(StringComparer.Ordinal);
-        var offset = 0;
-        while (offset < data.Length)
-        {
-            if (offset + 8 > data.Length)
-                throw new GameDataException($"Truncated ARZ field block in {_strings[(int)header.RecordNameIndex]}");
-
-            var type = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset, 2));
-            var count = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(offset + 2, 2));
-            var nameIndex = BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(offset + 4, 4));
-            if (nameIndex >= _strings.Count)
-                throw new GameDataException($"Invalid ARZ field name index: {nameIndex}");
-            var name = _strings[(int)nameIndex];
-            offset += 8;
-            for (var index = 0; index < count; index++)
-            {
-                if (offset + 4 > data.Length)
-                    throw new GameDataException($"Truncated ARZ field value in {_strings[(int)header.RecordNameIndex]}");
-                var raw = BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(offset, 4));
-                offset += 4;
-
-                string? textValue = null;
-                double numericValue;
-                if (type == 1)
-                {
-                    numericValue = BitConverter.Int32BitsToSingle(unchecked((int)raw));
-                    if (numericValue == 0f)
-                        continue;
-                }
-                else if (type == 2)
-                {
-                    if (raw >= _strings.Count)
-                        throw new GameDataException($"Invalid ARZ string index: {raw}");
-                    textValue = _strings[(int)raw];
-                    numericValue = 0;
-                    if (string.IsNullOrEmpty(textValue))
-                        continue;
-                }
-                else if (type == 0)
-                {
-                    numericValue = unchecked((int)raw);
-                    if (numericValue == 0)
-                        continue;
-                }
-                else if (type == 3)
-                {
-                    numericValue = raw;
-                    if (raw == 0)
-                        continue;
-                }
-                else
-                {
-                    throw new GameDataException($"Unsupported ARZ field type {type}: {name}");
-                }
-
-                var ordinal = fieldOrdinals.GetValueOrDefault(name);
-                fieldOrdinals[name] = ordinal + 1;
-                fields.Add(new ArzField
-                {
-                    Name = name,
-                    Ordinal = ordinal,
-                    NumericValue = numericValue,
-                    TextValue = textValue
-                });
-            }
-        }
+        var recordId = _strings[(int)header.RecordNameIndex];
 
         return new ArzRecord
         {
-            RecordId = _strings[(int)header.RecordNameIndex].Replace('\\', '/'),
-            Fields = fields
+            RecordId = recordId.Replace('\\', '/'),
+            Fields = ArzFieldReader.Read(data, _strings, recordId)
         };
     }
 

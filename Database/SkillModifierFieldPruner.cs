@@ -17,7 +17,7 @@ internal static class SkillModifierFieldPruner
             )
               AND record_pk NOT IN (
                   SELECT modifier_pk
-                  FROM affix_skill_modifiers
+                  FROM record_skill_modifiers
               );
             """;
         command.ExecuteNonQuery();

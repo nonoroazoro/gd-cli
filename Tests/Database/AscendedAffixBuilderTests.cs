@@ -24,7 +24,7 @@ public sealed class AscendedAffixBuilderTests
             using var setup = connection.CreateCommand();
             setup.Transaction = transaction;
             setup.CommandText = """
-                DELETE FROM affix_skill_modifiers;
+                DELETE FROM record_skill_modifiers;
                 DELETE FROM ascended_affix_categories;
                 DELETE FROM affixes WHERE family = 'ascended';
                 INSERT INTO records(id, record_id, class, display_name) VALUES
@@ -61,7 +61,7 @@ public sealed class AscendedAffixBuilderTests
             using var setup = connection.CreateCommand();
             setup.Transaction = transaction;
             setup.CommandText = """
-                DELETE FROM affix_skill_modifiers;
+                DELETE FROM record_skill_modifiers;
                 DELETE FROM ascended_affix_categories;
                 DELETE FROM affixes WHERE family = 'ascended';
                 INSERT INTO records(id, record_id, class, display_name) VALUES
@@ -78,7 +78,7 @@ public sealed class AscendedAffixBuilderTests
                 """;
             setup.ExecuteNonQuery();
             AscendedAffixBuilder.Build(connection, transaction);
-            AffixSkillModifierBuilder.Build(connection, transaction);
+            RecordSkillModifierBuilder.Build(connection, transaction);
         });
 
         using var database = new CliDatabase(fixture.Path);
@@ -89,6 +89,6 @@ public sealed class AscendedAffixBuilderTests
 
         Assert.Equal(["oneHandMelee"], affix.Categories);
         Assert.Equal(["affix"], affix.Groups);
-        Assert.Single(database.AffixSkillModifiers.Load([affix.RecordId])[affix.RecordId]);
+        Assert.Single(database.RecordSkillModifiers.Load([affix.RecordId])[affix.RecordId]);
     }
 }

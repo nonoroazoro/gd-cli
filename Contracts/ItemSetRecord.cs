@@ -17,5 +17,5 @@ internal sealed class ItemSetRecord
     public List<ItemSetMember> Members { get; } = [];
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public IReadOnlyList<RawStat>? Stats { get; set; }
+    public IReadOnlyList<ItemSetBonus>? Bonuses { get; set; }
 }

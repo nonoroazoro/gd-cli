@@ -40,5 +40,5 @@ internal sealed class AffixRecord
     public IReadOnlyList<string>? UnmodeledFields { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public IReadOnlyList<AffixSkillModifier>? SkillModifiers { get; set; }
+    public IReadOnlyList<SkillModifier>? SkillModifiers { get; set; }
 }

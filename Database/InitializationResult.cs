@@ -26,7 +26,7 @@ internal sealed class InitializationResult
 
     public required long Variants { get; init; }
 
-    public required long AffixSkillModifiers { get; init; }
+    public required long SkillModifiers { get; init; }
 
     public required long AffixCompatibilityRelations { get; init; }
 
