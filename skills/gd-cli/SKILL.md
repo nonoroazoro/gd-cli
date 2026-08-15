@@ -49,4 +49,4 @@ Present complete teleport coordinates as one plain-text line:
 
 `[<category>]<short label>, <x>, <y>, <z>`
 
-For BiS affix evaluation, read [references/affix-ranking.md](references/affix-ranking.md).
+For BiS affix evaluation, always read [references/affix-ranking.md](references/affix-ranking.md) before ranking.

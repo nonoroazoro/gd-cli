@@ -2,12 +2,15 @@
 
 Identify the best type-compatible Prefix, Suffix, and Ascended affixes for a specific equipment type and build.
 
+Resistance Reduction is a core offensive dependency. Audit relevant RR candidates and the build's existing RR baseline when available; reliable, non-redundant RR often outweighs ordinary damage bonuses. Missing RR context must not block ranking: state a baseline assumption, keep the result conditional, and identify the existing RR that would reverse it.
+
 ## Required context
 
 - Exact `itemClass` for Prefix and Suffix compatibility.
 - Exact base item or record ID when game-defined variants may exist.
 - Main skill, damage type, and attack or cast style.
 - Filler actions used during cooldowns and effects triggered by those actions.
+- Existing RR for each post-conversion damage type when available, separated by wording category, source, value, trigger, duration, and uptime.
 - Game-native Ascended category when Ascended ranking is requested.
 
 Mastery, base item, existing conversion, OA, target DA, speed caps, cooldowns, defenses, and the rest of the build improve accuracy. Do not require every detail before producing a useful ranking. Infer the most plausible rotation from the stated main skill, base item skill support, mastery skills, and candidate `skillBonuses`; state those assumptions. Return conditional candidates instead of a definitive BiS result when an unknown value can reverse the ranking.
@@ -52,7 +55,7 @@ Game-defined variants are base-item-specific components, not members of the stan
 
 ## BiS evaluation
 
-Use raw numeric `stats` for reasoning and English `effects` for presentation.
+Use raw numeric `stats` for reasoning. Use `effects` to interpret mechanics, not to replace localized names or other returned game data in the answer.
 
 1. Inspect the base item before ranking. Record every supported main skill, filler, WPS, modifier, conversion, and proc that can reveal the intended rotation.
 2. Build one complete repeated cycle: main-skill casts, cooldown gaps, filler actions, WPS, buffs, debuffs, DoT applications, and relevant triggers.
@@ -119,8 +122,31 @@ Bleeding is independent from Pierce. Legacy fields map `characterStrength` to Ph
 - Skill ranks: `augmentSkillName*`, `augmentSkillLevel*`
 - Skill modifiers: `modifiedSkillName*`, `skillModifiers`
 - Conversion: `conversionInType`, `conversionOutType`, `conversionPercentage`
-- Resistance reduction: `offensiveTotalResistanceReduction*`
+- Resistance reduction: `offensive*ResistanceReduction*`
 - Defense: Health, DA, resistances, absorption, sustain
+
+### Resistance reduction
+
+Treat relevant Resistance Reduction as a damage multiplier against enemies, not as ordinary percentage damage. Classify it by exact game wording before ranking:
+
+| Wording | Behavior | Ranking rule |
+|---|---|---|
+| `-X% <type> Resistance` | Distinct sources stack additively and can reduce resistance below zero. | Usually the highest-value RR category. Add every relevant, reliably maintained source. |
+| `X Reduced Target's <type> Resistance` | Flat reduction. Sources with the same affected resistance do not stack; only the highest active value applies. | Count only the improvement over the build's existing highest source, plus any coverage improvement. |
+| `X% Reduced Target's <type> Resistance` | Multiplicative reduction. Sources with the same affected resistance do not stack; only the highest active value applies. | Count only the improvement over the existing highest source. Value it more against high positive resistance and less near zero. |
+
+The three categories work together. Apply flat `X Reduced`, then multiplicative `X% Reduced`, then stacking `-X%` when estimating final resistance. For a resistance expressed in percentage points:
+
+1. Subtract the highest active flat reduction.
+2. Multiply a non-negative result by `1 - X / 100`, or a negative result by `1 + X / 100`, using the highest active multiplicative reduction.
+3. Subtract the sum of relevant stacking `-X%` sources.
+4. When `resistanceBefore < 100`, compare damage with `(100 - resistanceAfter) / (100 - resistanceBefore)`. Analyze the damage-enabling breakpoint separately when resistance starts at or above 100.
+
+Treat `X% Chance of ...` as a trigger around one of these categories, not as another RR category. Estimate uptime from trigger eligibility, chance, action rate, duration, cooldown, and OA when the trigger requires a critical hit. Do not equate nominal RR with permanent RR when uptime is incomplete. Resistance Reduction delivered through Weapon Damage scales below 100% Weapon Damage and reaches full effect at 100%.
+
+Weight only resistance types matching the build's actual post-conversion damage. For mixed damage, weight each type by its sustained damage share. An all-resistance source and a type-specific non-stacking source overlap for that type; use the stronger active value rather than adding them.
+
+In raw data, `offensiveTotalResistanceReductionAbsolute*` represents flat all-resistance reduction and `offensiveTotalResistanceReductionPercent*` represents multiplicative all-resistance reduction. `Chance`, `DurationMin`, and `Min` companion fields describe activation, duration, and magnitude. Physical and Elemental variants use the corresponding `offensivePhysical*` and `offensiveElemental*` fields. Inspect direct `stats`, `skillModifiers`, proc data, and `unmodeledFields`; never infer stacking behavior from a field name without confirming its wording and source.
 
 ## BiS priorities
 
@@ -129,18 +155,18 @@ Use these as dependency-aware guidelines, not a fixed score formula.
 For sustained direct weapon damage:
 
 1. Main-skill, filler, and WPS ranks or modifiers weighted by cycle usage
-2. Matching flat damage scaled by Weapon Damage across all eligible actions
-3. Attack Speed or Cast Speed that adds filler, WPS, or trigger opportunities below cap
-4. OA and OA-supported Crit Damage across the rotation
-5. Matching percentage damage and All Damage
-6. Useful conversion and resistance reduction
+2. Relevant, non-redundant Resistance Reduction with reliable uptime
+3. Matching flat damage scaled by Weapon Damage across all eligible actions
+4. Attack Speed or Cast Speed that adds filler, WPS, or trigger opportunities below cap
+5. OA and OA-supported Crit Damage across the rotation
+6. Matching percentage damage, All Damage, and useful conversion
 7. Defense and sustain that preserve combat uptime
 
 For damage over time:
 
 1. Relevant skill ranks and meaningful flat DoT
-2. OA and Crit Damage
-3. Resistance reduction active before application
+2. Relevant, non-redundant Resistance Reduction active before application
+3. OA and Crit Damage
 4. Matching DoT percentage and duration
 5. Speed only when it improves application or direct-hit output
 6. Survivability
