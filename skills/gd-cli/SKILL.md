@@ -1,6 +1,6 @@
 ---
 name: gd-cli
-description: Query Grim Dawn items, sets, variants, availability, acquisition, vendors, monsters, recipes, affixes, Ascended affixes, compatibility, quests, and coordinates with gd-cli. Use for game-data research, affix ranking, or BiS evaluation. Initialize automatically only when the CLI database is absent; never rebuild an existing database without explicit user approval.
+description: Query Grim Dawn items, MI status, sets, variants, availability, acquisition, vendors, monsters, recipes, affixes, Ascended affixes, compatibility, quests, and coordinates with gd-cli. Use for game-data research, affix ranking, or BiS evaluation. Initialize automatically only when the CLI database is absent; never rebuild an existing database without explicit user approval.
 ---
 
 # gd-cli
@@ -27,7 +27,7 @@ Run `gd-cli info` once before the first query of a session. Reuse that result fo
 | `init <grim-dawn-game-directory> [--game-language en\|zh]` | Rebuild the CLI database from game data. The default game-data language is `zh`. |
 | `info` | Show database metadata and valid values. |
 | `schema` | Show fields and capabilities. |
-| `items [query] [filters] [paging]` | List, filter, or inspect items. A specific item includes stats, skill modifiers, tiered set bonuses, variants, availability, acquisition, source entities, routes, and coordinates. |
+| `items [query] [filters] [paging]` | List, filter, or inspect items by rarity, type, level, MI status, or availability. A specific item includes stats, skill modifiers, tiered set bonuses, variants, availability, acquisition, source entities, routes, and coordinates. |
 | `affixes [query] [filters] [paging]` | Query standard Prefix and Suffix records or Ascended affixes, including effects and item-type compatibility. |
 | `quests [query] [paging]` | List quests or inspect a quest graph with branches, actors, and available key coordinates. |
 
