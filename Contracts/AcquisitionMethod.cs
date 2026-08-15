@@ -7,7 +7,7 @@ internal sealed class AcquisitionMethod
     public required string Kind { get; init; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public AcquisitionItem? Recipe { get; init; }
+    public ItemSummary? Recipe { get; init; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<AcquisitionMethod>? Sources { get; init; }

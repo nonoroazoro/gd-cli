@@ -5,6 +5,7 @@ Identify the best type-compatible Prefix, Suffix, and Ascended affixes for a spe
 ## Required context
 
 - Exact `itemClass` for Prefix and Suffix compatibility.
+- Exact base item or record ID when game-defined variants may exist.
 - Main skill, damage type, and attack or cast style.
 - Filler actions used during cooldowns and effects triggered by those actions.
 - Game-native Ascended category when Ascended ranking is requested.
@@ -31,12 +32,13 @@ When a cooldown main skill is paired with base-item support for a WPS, treat a W
 Resolve raw values from `info` or `schema`. Never infer compatibility from affix names.
 
 ```powershell
-gd-cli affixes --type <itemClass> --kind prefix --all --query "data[].{recordId:recordId,name:name,rarity:rarity,itemLevel:itemLevel,requiredLevel:requiredLevel,stats:stats,effects:effects,skillBonuses:skillBonuses,unmodeledFields:unmodeledFields}"
-gd-cli affixes --type <itemClass> --kind suffix --all --query "data[].{recordId:recordId,name:name,rarity:rarity,itemLevel:itemLevel,requiredLevel:requiredLevel,stats:stats,effects:effects,skillBonuses:skillBonuses,unmodeledFields:unmodeledFields}"
-gd-cli ascended-affixes --category <category> --all --query "data[].{recordId:recordId,name:name,groups:groups,stats:stats,effects:effects,skillBonuses:skillBonuses,skillModifiers:skillModifiers,unmodeledFields:unmodeledFields}"
+gd-cli affixes --family standard --type <itemClass> --kind prefix --all --query "data[].{recordId:recordId,name:name,rarity:rarity,itemLevel:itemLevel,requiredLevel:requiredLevel,stats:stats,effects:effects,skillBonuses:skillBonuses,unmodeledFields:unmodeledFields}"
+gd-cli affixes --family standard --type <itemClass> --kind suffix --all --query "data[].{recordId:recordId,name:name,rarity:rarity,itemLevel:itemLevel,requiredLevel:requiredLevel,stats:stats,effects:effects,skillBonuses:skillBonuses,unmodeledFields:unmodeledFields}"
+gd-cli affixes --family ascended --category <category> --all --query "data[].{recordId:recordId,name:name,groups:groups,stats:stats,effects:effects,skillBonuses:skillBonuses,skillModifiers:skillModifiers,unmodeledFields:unmodeledFields}"
+gd-cli items <item-name-or-record-id> --all --query "data[].{recordId:recordId,name:name,stats:stats,variants:variants}"
 ```
 
-Apply `--rarity`, `--min-level`, and `--max-level` to normal affix queries when the request supplies those constraints. Use `affix <record-id>` or `ascended-affix <record-id>` for exact details.
+Apply `--rarity`, `--min-level`, and `--max-level` when the request supplies those constraints. Pass an affix record ID to `affixes` for exact details.
 
 Prefix, Suffix, and Ascended are independent systems:
 
@@ -45,6 +47,8 @@ Prefix, Suffix, and Ascended are independent systems:
 - Rank Ascended candidates within the requested category and preserve their `groups` value.
 - Evaluate complete Prefix plus Suffix combinations before declaring normal-affix BiS.
 - Do not substitute Ascended for Prefix or Suffix.
+
+Game-defined variants are base-item-specific components, not members of the standard affix pool. Evaluate their direct stats and `skillModifiers` before ranking the item. Preserve `kind` and `sourceRecordIds`; do not assume combinations that the returned relations do not establish.
 
 ## BiS evaluation
 
@@ -155,4 +159,4 @@ Lead with the BiS recommendation only when evidence supports it. Include:
 6. A short reason and reversal condition for each rank
 7. At least one conditional alternative when context is incomplete
 
-Do not output a bare score. Claim compatibility only from `affixes --type` or `ascended-affixes --category` results. Do not label a result BiS when missing build information can materially reverse it. Do not answer a sustained-build question from the main skill's single-hit stats alone.
+Do not output a bare score. Claim compatibility only from `affixes --type` or `affixes --family ascended --category` results. Do not label a result BiS when missing build information can materially reverse it. Do not answer a sustained-build question from the main skill's single-hit stats alone.

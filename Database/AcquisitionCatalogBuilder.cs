@@ -11,7 +11,6 @@ internal static class AcquisitionCatalogBuilder
         _buildVendorSources(connection, transaction);
         _buildRandomSources(connection, transaction);
         _updateMiFlags(connection, transaction);
-        AcquisitionGraphPruner.Prune(connection, transaction);
     }
 
     private static void _buildRecipes(SqliteConnection connection, SqliteTransaction transaction)

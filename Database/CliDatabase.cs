@@ -24,10 +24,11 @@ internal sealed class CliDatabase : IDisposable
             _validateSchema();
             Items = new ItemRepository(_connection);
             ItemFamilies = new ItemFamilyRepository(_connection);
+            ItemSets = new ItemSetRepository(_connection);
+            ItemVariants = new ItemVariantRepository(_connection);
             Affixes = new AffixRepository(_connection);
-            AscendedAffixes = new AscendedAffixRepository(_connection);
+            AffixSkillModifiers = new AffixSkillModifierRepository(_connection);
             Acquisitions = new AcquisitionRepository(_connection);
-            Search = new SearchRepository(_connection);
             Quests = new QuestRepository(_connection);
         }
         catch (SqliteException exception)
@@ -48,13 +49,15 @@ internal sealed class CliDatabase : IDisposable
 
     public ItemFamilyRepository ItemFamilies { get; }
 
+    public ItemSetRepository ItemSets { get; }
+
+    public ItemVariantRepository ItemVariants { get; }
+
     public AffixRepository Affixes { get; }
 
-    public AscendedAffixRepository AscendedAffixes { get; }
+    public AffixSkillModifierRepository AffixSkillModifiers { get; }
 
     public AcquisitionRepository Acquisitions { get; }
-
-    public SearchRepository Search { get; }
 
     public QuestRepository Quests { get; }
 
@@ -71,16 +74,17 @@ internal sealed class CliDatabase : IDisposable
             UserVersion = _scalar<long>("PRAGMA user_version"),
             RecordCount = _scalar<long>("SELECT COUNT(*) FROM records"),
             ItemCount = _scalar<long>("SELECT COUNT(*) FROM items"),
-            AffixCount = _scalar<long>("SELECT COUNT(*) FROM affixes"),
-            AscendedAffixCount = _scalar<long>("SELECT COUNT(*) FROM ascended_affixes"),
-            AscendedSkillModifierCount = _scalar<long>(
-                "SELECT COUNT(DISTINCT modifier_pk) FROM ascended_skill_modifiers"),
+            ItemSetCount = _scalar<long>("SELECT COUNT(*) FROM item_sets"),
+            AffixCount = _scalar<long>("SELECT COUNT(*) FROM affixes WHERE family = 'standard'"),
+            AscendedAffixCount = _scalar<long>("SELECT COUNT(*) FROM affixes WHERE family = 'ascended'"),
+            AscendedSkillModifierCount = _countSkillModifiers("ascended"),
+            VariantCount = _scalar<long>("SELECT COUNT(*) FROM affixes WHERE family = 'variant'"),
+            VariantSkillModifierCount = _countSkillModifiers("variant"),
             LevelCount = _scalar<long>("SELECT COUNT(*) FROM levels"),
             PlacementCount = _scalar<long>("SELECT COUNT(*) FROM placements"),
             QuestCount = _scalar<long>("SELECT COUNT(*) FROM quests"),
             QuestNodeCount = _scalar<long>("SELECT COUNT(*) FROM quest_nodes"),
             QuestEntityCount = _scalar<long>("SELECT COUNT(*) FROM quest_entities"),
-            MiCount = miRecordCount,
             MiRecordCount = miRecordCount,
             MiNameTagCount = _scalar<long>("""
                 SELECT COUNT(DISTINCT R.name_tag)
@@ -94,8 +98,10 @@ internal sealed class CliDatabase : IDisposable
             GameDirectory = _metadata("gameDirectory"),
             Rarities = GetRarities(),
             ItemClasses = GetItemClasses(),
+            AffixFamilies = GetAffixFamilies(),
             AffixKinds = GetAffixKinds(),
-            AscendedCategories = GetAscendedCategories()
+            AscendedCategories = GetAscendedCategories(),
+            Availabilities = GetAvailabilities()
         };
     }
 
@@ -111,12 +117,23 @@ internal sealed class CliDatabase : IDisposable
 
     public IReadOnlyList<string> GetAffixKinds()
     {
-        return _distinct("SELECT kind AS value FROM affixes");
+        return _distinct("SELECT kind AS value FROM affixes WHERE family = 'standard'");
+    }
+
+    public IReadOnlyList<string> GetAffixFamilies()
+    {
+        return _distinct(
+            "SELECT family AS value FROM affixes WHERE family IN ('standard', 'ascended')");
     }
 
     public IReadOnlyList<string> GetAscendedCategories()
     {
         return _distinct("SELECT category AS value FROM ascended_affix_categories");
+    }
+
+    public IReadOnlyList<string> GetAvailabilities()
+    {
+        return _distinct("SELECT availability AS value FROM items UNION SELECT availability AS value FROM item_sets");
     }
 
     public Dictionary<string, List<RawStat>> LoadStats(IEnumerable<string> records)
@@ -128,7 +145,7 @@ internal sealed class CliDatabase : IDisposable
             var parameters = SqliteQuery.AddValues(command, "record", chunk);
             command.CommandText = $"""
                 SELECT R.record_id, N.name, F.numeric_value, F.text_value
-                FROM item_fields F
+                FROM record_fields F
                 JOIN records R ON R.id = F.record_pk
                 JOIN field_names N ON N.id = F.field_pk
                 WHERE R.record_id IN ({parameters})
@@ -173,7 +190,7 @@ internal sealed class CliDatabase : IDisposable
             using var command = _connection.CreateCommand();
             var parameters = SqliteQuery.AddValues(command, "record", chunk);
             command.CommandText = $"""
-                SELECT record_id, display_name
+                SELECT record_id, COALESCE(display_name, record_id)
                 FROM records
                 WHERE record_id IN ({parameters})
                 """;
@@ -215,12 +232,30 @@ internal sealed class CliDatabase : IDisposable
     private List<string> _distinct(string sql)
     {
         using var command = _connection.CreateCommand();
-        command.CommandText = $"SELECT DISTINCT value FROM ({sql}) AS valueset WHERE value <> '' ORDER BY value COLLATE NOCASE";
+        command.CommandText = $"""
+            SELECT DISTINCT value
+            FROM ({sql}) AS valueset
+            WHERE value <> ''
+            ORDER BY value COLLATE NOCASE
+            """;
         using var reader = command.ExecuteReader();
         var result = new List<string>();
         while (reader.Read())
             result.Add(reader.GetString(0));
         return result;
+    }
+
+    private long _countSkillModifiers(string family)
+    {
+        using var command = _connection.CreateCommand();
+        command.CommandText = """
+            SELECT COUNT(DISTINCT ASM.modifier_pk)
+            FROM affix_skill_modifiers ASM
+            JOIN affixes A ON A.record_pk = ASM.affix_pk
+            WHERE A.family = @family
+            """;
+        command.Parameters.AddWithValue("@family", family);
+        return Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture);
     }
 
     private T _scalar<T>(string sql)
@@ -232,5 +267,4 @@ internal sealed class CliDatabase : IDisposable
             throw new IncompatibleDatabaseException($"The database returned no value for: {sql}");
         return (T)Convert.ChangeType(value, typeof(T), CultureInfo.InvariantCulture);
     }
-
 }

@@ -6,8 +6,6 @@ internal sealed class GameDataSource
 
     public required int Priority { get; init; }
 
-    public required string Root { get; init; }
-
     public required string ArzPath { get; init; }
 
     public string? EnglishTagsPath { get; init; }

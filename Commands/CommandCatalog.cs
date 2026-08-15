@@ -23,7 +23,8 @@ internal static class CommandCatalog
             _command("schema", "Show fields, capabilities, and valid filter values."),
             _command(
                 "items",
-                "Query item records.",
+                "Query items and related set, variant, and acquisition data.",
+                ["query (optional)"],
                 options:
                 [
                     "--rarity VALUE|all",
@@ -31,30 +32,24 @@ internal static class CommandCatalog
                     "--min-level N",
                     "--max-level N",
                     "--mi true|false",
+                    "--availability known|referenced|unresolved|unavailable|all",
+                    "--families",
                     "--offset N",
                     "--limit N",
                     "--all",
                     "--no-stats"
                 ]),
-            _command(
-                "item-families",
-                "Query item records grouped by stable game name tag.",
-                options:
-                [
-                    "--mi true|false",
-                    "--offset N",
-                    "--limit N",
-                    "--all"
-                ]),
-            _command("item", "Get one item by exact record ID.", ["record-id"], ["--no-stats"]),
             _command(
                 "affixes",
-                "Query prefix and suffix records.",
+                "Query standard and Ascended affixes.",
+                ["query (optional)"],
                 options:
                 [
+                    "--family standard|ascended|all",
                     "--rarity VALUE|all",
                     "--kind prefix|suffix|all",
                     "--type VALUE|all",
+                    "--category VALUE|all",
                     "--min-level N",
                     "--max-level N",
                     "--offset N",
@@ -62,51 +57,11 @@ internal static class CommandCatalog
                     "--all",
                     "--no-stats"
                 ]),
-            _command("affix", "Get one affix by exact record ID.", ["record-id"], ["--no-stats"]),
-            _command(
-                "ascended-affixes",
-                "Query Ascended affixes by game-native equipment category.",
-                options:
-                [
-                    "--category VALUE|all",
-                    "--offset N",
-                    "--limit N",
-                    "--all",
-                    "--no-stats"
-                ]),
-            _command(
-                "ascended-affix",
-                "Get one Ascended affix by exact record ID.",
-                ["record-id"],
-                ["--no-stats"]),
-            _command(
-                "acquisition",
-                "Find every known way to acquire an item.",
-                ["item-name-or-record-id"],
-                ["--offset N", "--limit N", "--all"]),
             _command(
                 "quests",
-                "Query quests.",
+                "Query quest summaries or a detailed quest graph.",
+                ["query (optional)"],
                 options: ["--offset N", "--limit N", "--all"]),
-            _command(
-                "quest",
-                "Get quest graph, actors, and key coordinates.",
-                ["quest-name-or-path"],
-                ["--offset N", "--limit N", "--all"]),
-            _command(
-                "search",
-                "Search item and affix names or record IDs.",
-                ["query"],
-                [
-                    "--rarity VALUE|all",
-                    "--type VALUE|all",
-                    "--kind prefix|suffix|all",
-                    "--min-level N",
-                    "--max-level N",
-                    "--offset N",
-                    "--limit N",
-                    "--all"
-                ])
         ]
     };
 

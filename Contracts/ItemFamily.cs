@@ -13,4 +13,6 @@ internal sealed class ItemFamily
     public required IReadOnlyList<string> RecordIds { get; init; }
 
     public required IReadOnlyList<string> Rarities { get; init; }
+
+    public required IReadOnlyList<string> Availabilities { get; init; }
 }

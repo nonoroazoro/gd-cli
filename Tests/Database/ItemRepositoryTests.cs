@@ -5,7 +5,7 @@ namespace GdCli.Tests.Database;
 public sealed class ItemRepositoryTests
 {
     [Fact]
-    public void QueriesFilterCountPageAndFindInSql()
+    public void QueriesFilterCountAndPageInSql()
     {
         using var fixture = new TestDatabase();
         using var database = new CliDatabase(fixture.Path);
@@ -15,10 +15,6 @@ public sealed class ItemRepositoryTests
         var item = Assert.Single(database.Items.Load(filter, 1, 1));
         Assert.Equal("records/items/c.dbr", item.RecordId);
         Assert.Equal("tagShared", item.NameTag);
-        Assert.Equal(
-            "records/items/b.dbr",
-            database.Items.FindByRecordId("RECORDS/ITEMS/B.DBR")?.RecordId);
-        Assert.Null(database.Items.FindByRecordId("records/items/percent.dbr")?.NameTag);
     }
 
     [Fact]
@@ -35,17 +31,21 @@ public sealed class ItemRepositoryTests
     }
 
     [Fact]
-    public void DropCandidatesKeepExactAndMiSemanticsInSql()
+    public void QueriesMatchNamesWithExactAndMiSemantics()
     {
         using var fixture = new TestDatabase();
         using var database = new CliDatabase(fixture.Path);
 
-        Assert.Equal(1, database.Items.CountMatches("Beta", true, false));
-        Assert.Equal(1, database.Items.CountMatches("Beta", true, true));
+        var exact = new ItemFilter(null, null, null, null, null, Query: "Beta", ExactQuery: true);
+        var exactMi = exact with { IsMi = true };
+        var partial = exact with { Query = "Alpi", ExactQuery = false };
+
+        Assert.Equal(1, database.Items.Count(exact));
+        Assert.Equal(1, database.Items.Count(exactMi));
         Assert.Equal(
             "records/items/b.dbr",
-            Assert.Single(database.Items.LoadMatches("Beta", true, true, 0, 1)).RecordId);
-        Assert.Equal(1, database.Items.CountMatches("Alpi", false, false));
-        Assert.Equal(0, database.Items.CountMatches("Alpi", false, true));
+            Assert.Single(database.Items.Load(exactMi, 0, 1)).RecordId);
+        Assert.Equal(1, database.Items.Count(partial));
+        Assert.Equal(0, database.Items.Count(partial with { IsMi = true }));
     }
 }

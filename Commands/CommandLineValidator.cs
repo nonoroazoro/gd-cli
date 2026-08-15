@@ -26,62 +26,40 @@ internal static class CommandLineValidator
                 break;
             case "items":
                 _rejectGameLanguage(options);
-                if (options.KindSpecified)
-                    throw new CommandLineException("--kind is not valid for items.");
-                if (options.AscendedCategorySpecified)
-                    throw new CommandLineException("--category is not valid for items.");
-                break;
-            case "item-families":
-                _rejectGameLanguage(options);
-                _rejectNoStats(options);
-                if (options.RaritySpecified ||
-                    options.ItemClassSpecified ||
-                    options.KindSpecified ||
-                    options.AscendedCategorySpecified ||
-                    options.MinimumLevel.HasValue ||
-                    options.MaximumLevel.HasValue)
-                    throw new CommandLineException("Only --mi is a valid filter for item-families.");
-                break;
-            case "item":
-            case "affix":
-            case "ascended-affix":
-                _rejectFilters(options);
-                _rejectPaging(options);
-                _rejectGameLanguage(options);
+                if (options.KindSpecified || options.AffixFamilySpecified || options.AscendedCategorySpecified)
+                    throw new CommandLineException("Affix filters are not valid for items.");
+                if (options.GroupFamilies && options.ItemQuery != null)
+                    throw new CommandLineException("--families cannot be combined with an item query.");
+                if (options.GroupFamilies && (options.RaritySpecified || options.ItemClassSpecified ||
+                    options.MinimumLevel.HasValue || options.MaximumLevel.HasValue || options.NoStats))
+                    throw new CommandLineException(
+                        "Only --mi, --availability, and paging are valid with --families.");
                 break;
             case "affixes":
                 _rejectGameLanguage(options);
-                if (options.AscendedCategorySpecified)
-                    throw new CommandLineException("--category is not valid for affixes.");
+                if (options.GroupFamilies)
+                    throw new CommandLineException("--families is not valid for affixes.");
                 if (options.MiSpecified)
                     throw new CommandLineException("--mi is not valid for affixes.");
-                break;
-            case "ascended-affixes":
-                _rejectGameLanguage(options);
-                if (options.RaritySpecified ||
-                    options.ItemClassSpecified ||
-                    options.KindSpecified ||
-                    options.MiSpecified ||
-                    options.MinimumLevel.HasValue ||
-                    options.MaximumLevel.HasValue)
+                if (options.AvailabilitySpecified)
+                    throw new CommandLineException("--availability is not valid for affixes.");
+                if (options.AffixFamily?.Equals("standard", StringComparison.OrdinalIgnoreCase) == true &&
+                    options.AscendedCategorySpecified)
+                {
                     throw new CommandLineException(
-                        "Only --category is a valid filter for ascended-affixes.");
-                break;
-            case "search":
-                _rejectGameLanguage(options);
-                _rejectNoStats(options);
-                if (options.ItemClass != null && options.Kind != null)
-                    throw new CommandLineException("--type and --kind cannot be combined for search.");
-                if (options.MiSpecified)
-                    throw new CommandLineException("--mi is not valid for search.");
-                if (options.AscendedCategorySpecified)
-                    throw new CommandLineException("--category is not valid for search.");
-                break;
-            case "acquisition":
-            case "quest":
-                _rejectFilters(options);
-                _rejectGameLanguage(options);
-                _rejectNoStats(options);
+                        "--category is not valid with --family standard.");
+                }
+                if (options.AffixFamily?.Equals("ascended", StringComparison.OrdinalIgnoreCase) == true &&
+                    (options.ItemClassSpecified || options.KindSpecified))
+                {
+                    throw new CommandLineException(
+                        "--type and --kind are not valid with --family ascended.");
+                }
+                if (options.KindSpecified && options.AscendedCategorySpecified)
+                {
+                    throw new CommandLineException(
+                        "--kind and --category target different affix families.");
+                }
                 break;
             case "quests":
                 _rejectFilters(options);
@@ -96,11 +74,15 @@ internal static class CommandLineValidator
         if (options.RaritySpecified ||
             options.ItemClassSpecified ||
             options.KindSpecified ||
+            options.AffixFamilySpecified ||
             options.AscendedCategorySpecified ||
             options.MiSpecified ||
+            options.AvailabilitySpecified ||
             options.MinimumLevel.HasValue ||
             options.MaximumLevel.HasValue)
             throw new CommandLineException($"Filters are not valid for {options.Command}.");
+        if (options.GroupFamilies)
+            throw new CommandLineException($"--families is not valid for {options.Command}.");
     }
 
     private static void _rejectPaging(CommandLineOptions options)
@@ -120,5 +102,4 @@ internal static class CommandLineValidator
         if (options.NoStats)
             throw new CommandLineException($"--no-stats is not valid for {options.Command}.");
     }
-
 }

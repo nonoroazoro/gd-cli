@@ -1,6 +1,6 @@
 namespace GdCli.Contracts;
 
-internal sealed class AcquisitionItem
+internal sealed class ItemSummary
 {
     public required string RecordId { get; init; }
 
@@ -11,4 +11,6 @@ internal sealed class AcquisitionItem
     public required string Rarity { get; init; }
 
     public required string ItemClass { get; init; }
+
+    public required string Availability { get; init; }
 }

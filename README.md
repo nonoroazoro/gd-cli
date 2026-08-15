@@ -1,14 +1,14 @@
 # gd-cli
 
-Agent-first CLI for querying Grim Dawn items, affixes, acquisition methods, quests, and key map coordinates. It returns stable, compact JSON and is not designed for interactive human use.
+Agent-first CLI for querying Grim Dawn game data. Items are the primary domain: one item query can return the base record, set relations, game-defined variants, acquisition methods, actors, and coordinates. Affixes and quests are separate query domains.
+
+The CLI writes compact JSON to stdout and JSON errors to stderr. It is designed for AI agents, not interactive browsing.
 
 ## AI agent setup
 
 Run `gd-cli`.
 
-Install or link `skills/gd-cli` into the agent's Skill directory.
-
-The Skill covers acquisition queries and compatibility-first BiS evaluation for Prefix, Suffix, and Ascended affixes.
+Install or link `skills/gd-cli` into the agent's Skill directory. The Skill covers query selection, game terminology, coordinates, and compatibility-first BiS evaluation.
 
 For Codex on Windows:
 
@@ -18,7 +18,7 @@ New-Item -ItemType Junction `
     -Target (Resolve-Path ".\skills\gd-cli")
 ```
 
-### Database lifecycle
+## Database lifecycle
 
 Run `gd-cli info` before querying.
 
@@ -28,15 +28,13 @@ Run `gd-cli info` before querying.
 | `database_not_found` | Run `init` when the game directory is known. |
 | `incompatible_database` | Explain that `init` is required and wait for explicit user approval. |
 
-The CLI never rebuilds an existing database automatically.
-
-## Initialize
+Initialize with:
 
 ```text
 gd-cli init <grim-dawn-game-directory> [--game-language en|zh]
 ```
 
-`init` atomically builds the database from game data. The default game-data language is `zh`. CLI syntax and fields remain English.
+`init` atomically rebuilds the CLI-owned database from game data. The default game-data language is `zh`; CLI syntax and field names remain English.
 
 ## Commands
 
@@ -45,84 +43,57 @@ gd-cli tree
 gd-cli init <grim-dawn-game-directory> [--game-language en|zh]
 gd-cli info
 gd-cli schema
-gd-cli items [filters] [paging]
-gd-cli item-families [--mi true|false] [paging]
-gd-cli item <record-id> [--no-stats]
-gd-cli affixes [filters] [paging]
-gd-cli affix <record-id> [--no-stats]
-gd-cli ascended-affixes [filters] [paging]
-gd-cli ascended-affix <record-id> [--no-stats]
-gd-cli acquisition <item-name-or-record-id> [paging]
-gd-cli quests [paging]
-gd-cli quest <quest-name-or-path> [paging]
-gd-cli search <query> [filters] [paging]
+gd-cli items [query] [filters] [paging]
+gd-cli affixes [query] [filters] [paging]
+gd-cli quests [query] [paging]
 ```
 
-Use `gd-cli --help` for root commands and global flags. Use `gd-cli <command> --help` for command arguments and options.
+Use `gd-cli --help` for root commands and global flags. Use `gd-cli <command> --help` for command-specific arguments and options.
 
-### Item queries
+### Items
 
-| Need | Command |
-|---|---|
-| Find or filter individual records | `search`, `items` |
-| Group related records by `nameTag` | `item-families` |
-| Read one complete record and its stats | `item <record-id>` |
-| Find acquisition methods | `acquisition <name-or-record-id>` |
+`items` is the single item query surface.
 
-Locate the item, inspect its record, then query acquisition as needed.
+- Without `query`, it filters and pages item records.
+- With a name or record ID, it returns matching items plus set relations, variants, acquisition methods, actors, routes, and coordinates.
+- A set name returns its member items and the related set record.
+- `--families` groups records by stable `nameTag` for MI and localization analysis.
+- Lists omit `unavailable` records by default. An explicit query includes them. Use `--availability all` for catalog audits.
 
-Common options:
+Availability is evidence-based:
 
-- `--query JMESPATH` projects the final JSON.
-- `--offset`, `--limit`, and `--all` control paging.
-- `--no-stats` skips item details or affix range calculation.
-- Filters execute in SQLite when supported by command help.
+- `known`: a supported acquisition or recipe path exists.
+- `referenced`: live game, map, or quest data references the item.
+- `unresolved`: imported evidence is insufficient.
+- `unavailable`: explicit exclusion evidence exists without a live path.
 
-## Output contract
+Acquisition methods may include `vendor`, `specificMonster`, `randomDrop`, `craft`, and `unknown`. `unknown` means no supported source was derived; it does not prove the item is unavailable. Check `routesTruncated` before treating monster routes as complete.
 
-- stdout contains compact JSON results.
-- stderr contains JSON errors.
-- Exit codes indicate status.
-- Numeric fields are JSON numbers.
-- Affix `effects` include chance effects and skill bonuses; `skillBonuses` preserves stable skill record IDs and numeric levels.
+### Affixes
 
-### MI families
+`affixes` queries both `standard` Prefix and Suffix records and `ascended` affixes.
 
-`nameTag` groups localized item records. `item-families` preserves mixed MI and non-MI state.
+- `--family standard|ascended|all` selects the affix system.
+- `--type <itemClass>` applies exact game item-class compatibility to standard affixes.
+- `--category <category>` applies game-native equipment-category compatibility to Ascended affixes.
+- A name or record ID returns exact matches first, then partial matches.
 
-- `--mi true` selects families containing an MI record.
-- `--mi false` selects families containing no MI records.
-- `info.miCount` is a compatibility alias of `info.miRecordCount`.
-
-### Acquisition
-
-`acquisition` reports every known way to obtain an item:
-
-- `vendor`: direct merchant inventory, with known map coordinates.
-- `specificMonster`: dedicated monster loot paths, with actors, conditions, and coordinates.
-- `randomDrop`: randomized loot pools without expanding every monster using the pool.
-- `craft`: a recipe or design plus its known acquisition sources.
-- `unknown`: no supported source was derived from the game data.
-
-Methods are not mutually exclusive. Check `routesTruncated` before treating `specificMonster` routes as complete.
-
-### Affix compatibility
-
-`affixes --type <itemClass>` returns prefix and suffix records supported by that exact game item class.
-
-Ascended affixes use the game's broader equipment categories. Query them separately with `ascended-affixes --category <category>`. Valid categories are reported by `info` and `schema`.
-
-See [BiS Affix Evaluation](skills/gd-cli/references/affix-ranking.md) for the agent workflow.
+Valid values are reported by `info` and `schema`. See [BiS Affix Evaluation](skills/gd-cli/references/affix-ranking.md) for the agent workflow.
 
 ### Quests
 
-`quest` returns task, objective, event, conversation, and script nodes as a graph. Relevant actors and targets include fixed map coordinates when available. Branches remain explicit, and unresolved references are reported instead of guessed.
+Without a query, `quests` lists quest summaries. With a name or path, it returns the structured quest graph, branches, relevant actors, and available key coordinates. The database does not store full dialogue, Lua source, or precomputed routes.
 
-The database stores structured quest metadata only. It does not store full dialogue, Lua source, or precomputed routes.
+## Output
+
+- Global `--query JMESPATH` projects the complete JSON result.
+- Query commands expose paging and `--no-stats` where supported. Use command help for their exact scope.
+- Numeric values remain JSON numbers.
+- Stable game terms and record IDs are preserved.
 
 ## Game data and safety
 
-The repository directly parses Grim Dawn ARC, ARZ, tags, level maps, quests, conversations, and structured Lua quest metadata. `lz4net` decompresses LZ4 archive blocks. SQLite storage uses `Microsoft.Data.Sqlite`; `JmesPath.Net` implements `--query`.
+The repository directly parses Grim Dawn ARC, ARZ, text tags, maps, quests, conversations, and structured Lua quest metadata. `lz4net` decompresses LZ4 archive blocks. SQLite storage uses `Microsoft.Data.Sqlite`; `JmesPath.Net` implements `--query`.
 
 Initialization opens game files read-only with shared access. It writes only the CLI-owned database, cleans up only its own temporary files, and never modifies game files.
 
@@ -137,9 +108,7 @@ Requires the .NET 10 SDK.
 
 ## Release
 
-Publishing a GitHub Release runs tests and uploads a self-contained single-file `win-x64` ZIP. The ZIP contains only the executable, README, and Skill files.
-
-Create and publish a GitHub Release, or use:
+Publishing a GitHub Release runs tests and uploads a self-contained single-file `win-x64` ZIP containing only the executable, README, and Skill files.
 
 ```powershell
 git tag v1.0.0

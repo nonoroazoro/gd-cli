@@ -7,8 +7,20 @@ internal static class AscendedAffixBuilder
     public static void Build(SqliteConnection connection, SqliteTransaction transaction)
     {
         _execute(connection, transaction, """
-            INSERT INTO ascended_affixes(record_pk)
-            SELECT R.id
+            INSERT INTO affixes(
+                record_pk, family, kind, rarity, item_level, required_level, jitter_percent)
+            SELECT
+                R.id,
+                'ascended',
+                NULL,
+                COALESCE((SELECT F.text_value FROM record_fields F JOIN field_names N ON N.id = F.field_pk
+                          WHERE F.record_pk = R.id AND N.name = 'itemClassification' LIMIT 1), ''),
+                COALESCE((SELECT F.numeric_value FROM record_fields F JOIN field_names N ON N.id = F.field_pk
+                          WHERE F.record_pk = R.id AND N.name = 'itemLevel' LIMIT 1), 0),
+                COALESCE((SELECT F.numeric_value FROM record_fields F JOIN field_names N ON N.id = F.field_pk
+                          WHERE F.record_pk = R.id AND N.name = 'levelRequirement' LIMIT 1), 0),
+                COALESCE((SELECT F.numeric_value FROM record_fields F JOIN field_names N ON N.id = F.field_pk
+                          WHERE F.record_pk = R.id AND N.name = 'lootRandomizerJitter' LIMIT 1), 0)
             FROM records R
             WHERE R.class = 'LootRandomizer'
               AND R.record_id LIKE 'records/items/lootaffixes/ascended/%';
@@ -52,16 +64,7 @@ internal static class AscendedAffixBuilder
             INSERT OR IGNORE INTO ascended_affix_categories(affix_pk, category, group_name)
             SELECT G.record_pk, G.category, G.group_name
             FROM AscendedGraph G
-            JOIN ascended_affixes A ON A.record_pk = G.record_pk;
-            """);
-
-        _execute(connection, transaction, """
-            INSERT OR IGNORE INTO ascended_skill_modifiers(affix_pk, modifier_pk)
-            SELECT RR.source_pk, RR.target_pk
-            FROM record_references RR
-            JOIN ascended_affixes A ON A.record_pk = RR.source_pk
-            JOIN field_names N ON N.id = RR.field_pk
-            WHERE N.name LIKE 'modifierSkillName%';
+            JOIN affixes A ON A.record_pk = G.record_pk AND A.family = 'ascended';
             """);
     }
 

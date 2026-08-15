@@ -55,29 +55,41 @@ public sealed class CommandLineParserTests
     }
 
     [Fact]
-    public void ParseReadsAffixCompatibilityAndAscendedCategoryFilters()
+    public void ParseReadsUnifiedAffixFilters()
     {
-        var affixes = CommandLineParser.Parse(["affixes", "--type", "WeaponMelee_Mace"]);
-        var ascended = CommandLineParser.Parse(
-            ["ascended-affixes", "--category", "oneHandMelee"]);
+        var options = CommandLineParser.Parse(
+            ["affixes", "of", "Fervor", "--family", "ascended", "--type", "WeaponMelee_Mace", "--category", "oneHandMelee"]);
 
-        Assert.Equal("WeaponMelee_Mace", affixes.ItemClass);
-        Assert.Equal("oneHandMelee", ascended.AscendedCategory);
+        Assert.Equal("of Fervor", options.AffixQuery);
+        Assert.Equal("ascended", options.AffixFamily);
+        Assert.Equal("WeaponMelee_Mace", options.ItemClass);
+        Assert.Equal("oneHandMelee", options.AscendedCategory);
     }
 
     [Fact]
     public void ParseReadsMultiWordQuestName()
     {
-        var options = CommandLineParser.Parse(["quest", "Into", "the", "Breach"]);
+        var options = CommandLineParser.Parse(["quests", "Into", "the", "Breach"]);
 
         Assert.Equal("Into the Breach", options.QuestQuery);
     }
 
     [Fact]
-    public void ParseReadsMultiWordAcquisitionName()
+    public void ParseReadsMultiWordItemName()
     {
-        var options = CommandLineParser.Parse(["acquisition", "Conduit", "of", "Whispers"]);
+        var options = CommandLineParser.Parse(["items", "Conduit", "of", "Whispers"]);
 
-        Assert.Equal("Conduit of Whispers", options.AcquisitionQuery);
+        Assert.Equal("Conduit of Whispers", options.ItemQuery);
+    }
+
+    [Fact]
+    public void ParseReadsFamilyGroupingAndAvailabilityAuditFilter()
+    {
+        var items = CommandLineParser.Parse(
+            ["items", "--families", "--availability", "all"]);
+
+        Assert.True(items.GroupFamilies);
+        Assert.True(items.AvailabilitySpecified);
+        Assert.Null(items.Availability);
     }
 }

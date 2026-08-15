@@ -9,8 +9,8 @@ public sealed class AcquisitionRepositoryTests
     {
         using var fixture = new TestDatabase();
         fixture.Execute("""
-            INSERT INTO records(id, record_id, source_name, class, display_name)
-            VALUES (7, 'records/creatures/monster.dbr', 'base', 'Monster', 'Monster');
+            INSERT INTO records(id, record_id, class, display_name)
+            VALUES (7, 'records/creatures/monster.dbr', 'Monster', 'Monster');
             INSERT INTO acquisition_sources(item_pk, kind, source_pk) VALUES
                 (2, 'specificMonster', 7),
                 (3, 'specificMonster', 7);

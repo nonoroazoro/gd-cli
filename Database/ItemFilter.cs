@@ -5,4 +5,8 @@ internal sealed record ItemFilter(
     string? ItemClass,
     int? MinimumLevel,
     int? MaximumLevel,
-    bool? IsMi);
+    bool? IsMi,
+    string? Availability = null,
+    bool IncludeUnavailable = false,
+    string? Query = null,
+    bool ExactQuery = false);

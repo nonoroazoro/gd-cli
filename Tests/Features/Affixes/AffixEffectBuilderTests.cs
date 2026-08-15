@@ -13,6 +13,7 @@ public sealed class AffixEffectBuilderTests
         {
             RecordId = "records/items/lootaffixes/prefix/test.dbr",
             Name = "Test",
+            Family = "standard",
             Kind = "prefix",
             Rarity = "Rare",
             ItemLevel = 1,
@@ -56,6 +57,7 @@ public sealed class AffixEffectBuilderTests
         {
             RecordId = "records/items/lootaffixes/suffix/test.dbr",
             Name = "Test",
+            Family = "standard",
             Kind = "suffix",
             Rarity = "Rare",
             ItemLevel = 1,

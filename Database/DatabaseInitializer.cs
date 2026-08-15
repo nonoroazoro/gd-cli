@@ -35,16 +35,21 @@ internal static class DatabaseInitializer
         using (var transaction = connection.BeginTransaction())
         {
             _saveMetadata(connection, transaction, install);
-            _saveSources(connection, transaction, install);
             _importTags(connection, transaction, install);
             _importRecords(connection, transaction, install);
             GameRecordCatalogBuilder.Build(connection, transaction);
+            ItemSetCatalogBuilder.Build(connection, transaction);
             AffixCompatibilityBuilder.Build(connection, transaction);
             AscendedAffixBuilder.Build(connection, transaction);
+            ItemVariantCatalogBuilder.Build(connection, transaction);
+            AffixSkillModifierBuilder.Build(connection, transaction);
+            SkillModifierFieldPruner.Prune(connection, transaction);
             _execute(connection, transaction, DatabaseSchema.CreateBuildIndexesSql);
             AcquisitionCatalogBuilder.Build(connection, transaction);
             QuestCatalogBuilder.Build(connection, transaction, install);
             _importMaps(connection, transaction, install);
+            ItemAvailabilityBuilder.Build(connection, transaction);
+            AcquisitionGraphPruner.Prune(connection, transaction);
             transaction.Commit();
         }
         _execute(connection, DatabaseSchema.CreateIndexesSql);
@@ -106,26 +111,25 @@ internal static class DatabaseInitializer
         var records = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         var fieldNames = new Dictionary<string, long>(StringComparer.Ordinal);
         using var insertRecord = _command(connection, transaction, """
-            INSERT INTO records(record_id, source_name, class, template, name_tag)
-            VALUES (@record, @source, @class, @template, @nameTag)
+            INSERT INTO records(record_id, class, template, name_tag)
+            VALUES (@record, @class, @template, @nameTag)
             RETURNING id
             """);
         using var updateRecord = _command(connection, transaction, """
             UPDATE records
-            SET source_name = @source, class = @class, template = @template,
-                name_tag = @nameTag, display_name = ''
+            SET class = @class, template = @template, name_tag = @nameTag, display_name = NULL
             WHERE id = @id
             """);
         using var insertFieldName = _command(connection, transaction,
             "INSERT INTO field_names(name) VALUES (@name) RETURNING id");
-        using var deleteItemFields = _command(connection, transaction, "DELETE FROM item_fields WHERE record_pk = @record");
+        using var deleteRecordFields = _command(connection, transaction, "DELETE FROM record_fields WHERE record_pk = @record");
         using var deleteConditions = _command(connection, transaction, "DELETE FROM loot_conditions WHERE record_pk = @record");
         using var deleteReferences = _command(connection, transaction, "DELETE FROM raw_references WHERE source_pk = @record");
-        _ = deleteItemFields.Parameters.Add("@record", SqliteType.Integer);
+        _ = deleteRecordFields.Parameters.Add("@record", SqliteType.Integer);
         _ = deleteConditions.Parameters.Add("@record", SqliteType.Integer);
         _ = deleteReferences.Parameters.Add("@record", SqliteType.Integer);
         using var insertField = _command(connection, transaction, """
-            INSERT INTO item_fields(record_pk, field_pk, ordinal, numeric_value, text_value)
+            INSERT INTO record_fields(record_pk, field_pk, ordinal, numeric_value, text_value)
             VALUES (@record, @field, @ordinal, @numeric, @text)
             """);
         var fieldRecord = insertField.Parameters.Add("@record", SqliteType.Integer);
@@ -160,6 +164,7 @@ internal static class DatabaseInitializer
                 var className = _firstText(record, "Class");
                 var templateName = _firstText(record, "templateName");
                 var recordNameTag = _firstText(record, "itemNameTag")
+                    ?? _firstText(record, "setName")
                     ?? _firstText(record, "lootRandomizerName")
                     ?? _firstText(record, "description")
                     ?? _firstText(record, "skillDisplayName")
@@ -170,7 +175,6 @@ internal static class DatabaseInitializer
                 {
                     recordPk = existingPk;
                     updateRecord.Parameters.Clear();
-                    updateRecord.Parameters.AddWithValue("@source", source.Name);
                     updateRecord.Parameters.AddWithValue("@class", _dbValue(className));
                     updateRecord.Parameters.AddWithValue("@template", _dbValue(templateName));
                     updateRecord.Parameters.AddWithValue("@nameTag", _dbValue(recordNameTag));
@@ -181,7 +185,6 @@ internal static class DatabaseInitializer
                 {
                     insertRecord.Parameters.Clear();
                     insertRecord.Parameters.AddWithValue("@record", normalizedRecord);
-                    insertRecord.Parameters.AddWithValue("@source", source.Name);
                     insertRecord.Parameters.AddWithValue("@class", _dbValue(className));
                     insertRecord.Parameters.AddWithValue("@template", _dbValue(templateName));
                     insertRecord.Parameters.AddWithValue("@nameTag", _dbValue(recordNameTag));
@@ -189,8 +192,8 @@ internal static class DatabaseInitializer
                     records[normalizedRecord] = recordPk;
                 }
 
-                deleteItemFields.Parameters["@record"].Value = recordPk;
-                deleteItemFields.ExecuteNonQuery();
+                deleteRecordFields.Parameters["@record"].Value = recordPk;
+                deleteRecordFields.ExecuteNonQuery();
                 deleteConditions.Parameters["@record"].Value = recordPk;
                 deleteConditions.ExecuteNonQuery();
                 deleteReferences.Parameters["@record"].Value = recordPk;
@@ -244,16 +247,13 @@ internal static class DatabaseInitializer
     {
         var relevantRecords = _loadRelevantPlacementRecords(connection, transaction);
         using var insertLevel = _command(connection, transaction, """
-            INSERT INTO levels(source_name, level_path, rift_gate_record_id, offset_x, offset_y, offset_z)
-            VALUES (@source, @path, @rift, @x, @y, @z)
+            INSERT INTO levels(source_name, level_path, rift_gate_record_id)
+            VALUES (@source, @path, @rift)
             RETURNING id
             """);
         var levelSource = insertLevel.Parameters.Add("@source", SqliteType.Text);
         var levelPath = insertLevel.Parameters.Add("@path", SqliteType.Text);
         var levelRift = insertLevel.Parameters.Add("@rift", SqliteType.Text);
-        var levelX = insertLevel.Parameters.Add("@x", SqliteType.Integer);
-        var levelY = insertLevel.Parameters.Add("@y", SqliteType.Integer);
-        var levelZ = insertLevel.Parameters.Add("@z", SqliteType.Integer);
         using var insertPlacement = _command(connection, transaction, """
             INSERT INTO placements(level_pk, entity_ordinal, record_pk, world_x, world_y, world_z)
             VALUES (@level, @ordinal, @record, @wx, @wy, @wz)
@@ -284,9 +284,6 @@ internal static class DatabaseInitializer
                 levelSource.Value = source.Name;
                 levelPath.Value = level.Path;
                 levelRift.Value = level.RiftGateRecordId;
-                levelX.Value = level.OffsetX;
-                levelY.Value = level.OffsetY;
-                levelZ.Value = level.OffsetZ;
                 levelIds[level.Path] = Convert.ToInt64(insertLevel.ExecuteScalar(), CultureInfo.InvariantCulture);
             }
 
@@ -318,6 +315,7 @@ internal static class DatabaseInitializer
                 )
                OR R.id IN (SELECT record_pk FROM quest_entities)
                OR R.id IN (SELECT placed_pk FROM entity_aliases)
+               OR R.id IN (SELECT record_pk FROM items)
                OR ((R.record_id LIKE 'records/proxies/%' OR R.record_id LIKE 'records/creatures/%')
                     AND EXISTS (SELECT 1 FROM record_references RR WHERE RR.source_pk = R.id))
             """);
@@ -335,42 +333,12 @@ internal static class DatabaseInitializer
         var value = command.Parameters.Add("@value", SqliteType.Text);
         foreach (var entry in new Dictionary<string, string>
         {
-            ["schemaVersion"] = DatabaseSchema.Version.ToString(CultureInfo.InvariantCulture),
-            ["createdUtc"] = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
             ["gameDirectory"] = install.Root,
             ["gameLanguage"] = install.GameLanguage
         })
         {
             key.Value = entry.Key;
             value.Value = entry.Value;
-            command.ExecuteNonQuery();
-        }
-    }
-
-    private static void _saveSources(SqliteConnection connection, SqliteTransaction transaction, GameInstall install)
-    {
-        using var command = _command(connection, transaction, """
-            INSERT INTO sources(
-                name, priority, root_path, arz_path, arz_size, arz_modified_utc,
-                levels_path, levels_size, levels_modified_utc)
-            VALUES (@name, @priority, @root, @arz, @arzSize, @arzModified, @levels, @levelsSize, @levelsModified)
-            """);
-        foreach (var source in install.Sources)
-        {
-            var arz = new FileInfo(source.ArzPath);
-            var levels = source.LevelsPath == null ? null : new FileInfo(source.LevelsPath);
-            command.Parameters.Clear();
-            command.Parameters.AddWithValue("@name", source.Name);
-            command.Parameters.AddWithValue("@priority", source.Priority);
-            command.Parameters.AddWithValue("@root", source.Root);
-            command.Parameters.AddWithValue("@arz", source.ArzPath);
-            command.Parameters.AddWithValue("@arzSize", arz.Length);
-            command.Parameters.AddWithValue("@arzModified", arz.LastWriteTimeUtc.ToString("O", CultureInfo.InvariantCulture));
-            command.Parameters.AddWithValue("@levels", _dbValue(source.LevelsPath));
-            command.Parameters.AddWithValue("@levelsSize", levels == null ? DBNull.Value : levels.Length);
-            command.Parameters.AddWithValue("@levelsModified", levels == null
-                ? DBNull.Value
-                : levels.LastWriteTimeUtc.ToString("O", CultureInfo.InvariantCulture));
             command.ExecuteNonQuery();
         }
     }
@@ -392,15 +360,16 @@ internal static class DatabaseInitializer
             GameLanguage = install.GameLanguage,
             Sources = install.Sources.Count,
             Records = _scalar(connection, "SELECT COUNT(*) FROM records"),
-            ItemFields = _scalar(connection, "SELECT COUNT(*) FROM item_fields"),
+            RecordFields = _scalar(connection, "SELECT COUNT(*) FROM record_fields"),
             LootGraphEdges = _scalar(connection, "SELECT COUNT(*) FROM record_references"),
             LootConditions = _scalar(connection, "SELECT COUNT(*) FROM loot_conditions"),
             Items = _scalar(connection, "SELECT COUNT(*) FROM items"),
-            Affixes = _scalar(connection, "SELECT COUNT(*) FROM affixes"),
-            AscendedAffixes = _scalar(connection, "SELECT COUNT(*) FROM ascended_affixes"),
-            AscendedSkillModifiers = _scalar(
+            Affixes = _scalar(connection, "SELECT COUNT(*) FROM affixes WHERE family = 'standard'"),
+            AscendedAffixes = _scalar(connection, "SELECT COUNT(*) FROM affixes WHERE family = 'ascended'"),
+            Variants = _scalar(connection, "SELECT COUNT(*) FROM affixes WHERE family = 'variant'"),
+            AffixSkillModifiers = _scalar(
                 connection,
-                "SELECT COUNT(DISTINCT modifier_pk) FROM ascended_skill_modifiers"),
+                "SELECT COUNT(DISTINCT modifier_pk) FROM affix_skill_modifiers"),
             AffixCompatibilityRelations = _scalar(connection, "SELECT COUNT(*) FROM affix_item_classes"),
             Levels = _scalar(connection, "SELECT COUNT(*) FROM levels"),
             Placements = _scalar(connection, "SELECT COUNT(*) FROM placements"),
@@ -464,7 +433,7 @@ internal static class DatabaseInitializer
     {
         return (recordId.StartsWith("records/items/", StringComparison.OrdinalIgnoreCase) &&
                 !recordId.StartsWith("records/items/loottables/", StringComparison.OrdinalIgnoreCase)) ||
-               recordId.Contains("/skillmodifiers/ascended/", StringComparison.OrdinalIgnoreCase);
+               recordId.Contains("/skillmodifiers/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool _isLootCondition(string recordId, string field, string? textValue)

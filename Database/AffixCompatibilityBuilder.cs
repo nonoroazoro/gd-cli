@@ -10,8 +10,11 @@ internal static class AffixCompatibilityBuilder
         command.Transaction = transaction;
         command.CommandText = """
             WITH RECURSIVE
-            DynamicItemTables(item_class, table_pk) AS (
-                SELECT DISTINCT I.item_class, RR.source_pk
+            DynamicItemTables(item_class, table_pk, slot) AS (
+                SELECT DISTINCT
+                    I.item_class,
+                    RR.source_pk,
+                    substr(N.name, length('lootName') + 1)
                 FROM record_references RR
                 JOIN records S ON S.id = RR.source_pk
                 JOIN field_names N ON N.id = RR.field_pk
@@ -25,8 +28,11 @@ internal static class AffixCompatibilityBuilder
                 FROM DynamicItemTables D
                 JOIN record_references RR ON RR.source_pk = D.table_pk
                 JOIN field_names N ON N.id = RR.field_pk
-                WHERE N.name LIKE '%PrefixTableName%'
-                   OR N.name LIKE '%SuffixTableName%'
+                WHERE N.name IN (
+                    'prefixTableName' || D.slot,
+                    'suffixTableName' || D.slot,
+                    'rarePrefixTableName' || D.slot,
+                    'rareSuffixTableName' || D.slot)
             ),
             AffixGraph(item_class, record_pk) AS (
                 SELECT item_class, record_pk FROM AffixSeeds
@@ -42,7 +48,7 @@ internal static class AffixCompatibilityBuilder
             INSERT OR IGNORE INTO affix_item_classes(item_class, affix_pk)
             SELECT G.item_class, G.record_pk
             FROM AffixGraph G
-            JOIN affixes A ON A.record_pk = G.record_pk;
+            JOIN affixes A ON A.record_pk = G.record_pk AND A.family = 'standard';
             """;
         command.ExecuteNonQuery();
     }

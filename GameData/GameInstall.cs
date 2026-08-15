@@ -58,7 +58,6 @@ internal sealed class GameInstall
             {
                 Name = entry.Name,
                 Priority = priority,
-                Root = entry.Path,
                 ArzPath = arzPath,
                 EnglishTagsPath = englishTags,
                 LocalizedTagsPath = localizedTags,

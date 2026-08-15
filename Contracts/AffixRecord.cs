@@ -8,7 +8,10 @@ internal sealed class AffixRecord
 
     public required string Name { get; init; }
 
-    public required string Kind { get; init; }
+    public required string Family { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Kind { get; init; }
 
     public required string Rarity { get; init; }
 
@@ -17,6 +20,12 @@ internal sealed class AffixRecord
     public required double RequiredLevel { get; init; }
 
     public required double JitterPercent { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? Categories { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? Groups { get; init; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<RawStat>? Stats { get; set; }
@@ -29,4 +38,7 @@ internal sealed class AffixRecord
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? UnmodeledFields { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<AffixSkillModifier>? SkillModifiers { get; set; }
 }

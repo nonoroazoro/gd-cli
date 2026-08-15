@@ -13,12 +13,15 @@ internal sealed class ItemFamilyRepository
                 ELSE 'tag:' || R.name_tag
             END AS family_key,
             NULLIF(R.name_tag, '') AS name_tag,
-            I.name,
+            COALESCE(R.display_name, R.record_id) AS name,
             I.is_mi,
             R.record_id,
-            I.rarity
+            I.rarity,
+            I.availability
         FROM items I
         JOIN records R ON R.id = I.record_pk
+        WHERE ((@availability IS NOT NULL AND I.availability = @availability COLLATE NOCASE)
+               OR (@availability IS NULL AND (@includeUnavailable = 1 OR I.availability <> 'unavailable')))
         """;
 
     private readonly SqliteConnection _connection;
@@ -43,6 +46,8 @@ internal sealed class ItemFamilyRepository
             WHERE (@mi IS NULL OR has_mi = @mi)
             """;
         command.Parameters.AddWithValue("@mi", SqliteQuery.Value(filter.HasMiRecord));
+        command.Parameters.AddWithValue("@availability", SqliteQuery.Value(filter.Availability));
+        command.Parameters.AddWithValue("@includeUnavailable", filter.IncludeUnavailable);
         return Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
     }
 
@@ -75,12 +80,15 @@ internal sealed class ItemFamilyRepository
                 P.has_mi,
                 P.has_non_mi,
                 F.record_id,
-                F.rarity
+                F.rarity,
+                F.availability
             FROM family_page P
             JOIN family_rows F ON F.family_key = P.family_key
             ORDER BY P.family_key COLLATE NOCASE, F.record_id COLLATE NOCASE
             """;
         command.Parameters.AddWithValue("@mi", SqliteQuery.Value(filter.HasMiRecord));
+        command.Parameters.AddWithValue("@availability", SqliteQuery.Value(filter.Availability));
+        command.Parameters.AddWithValue("@includeUnavailable", filter.IncludeUnavailable);
         SqliteQuery.AddPaging(command, offset, limit);
         return _read(command);
     }
@@ -96,15 +104,24 @@ internal sealed class ItemFamilyRepository
         var hasNonMiRecord = false;
         var recordIds = new List<string>();
         var rarities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var availabilities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         while (reader.Read())
         {
             var key = reader.GetString(0);
             if (currentKey != null && !string.Equals(currentKey, key, StringComparison.Ordinal))
             {
-                result.Add(_create(nameTag, name, hasMiRecord, hasNonMiRecord, recordIds, rarities));
+                result.Add(_create(
+                    nameTag,
+                    name,
+                    hasMiRecord,
+                    hasNonMiRecord,
+                    recordIds,
+                    rarities,
+                    availabilities));
                 recordIds = [];
                 rarities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                availabilities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             }
 
             currentKey = key;
@@ -114,10 +131,20 @@ internal sealed class ItemFamilyRepository
             hasNonMiRecord = reader.GetBoolean(4);
             recordIds.Add(reader.GetString(5));
             rarities.Add(reader.GetString(6));
+            availabilities.Add(reader.GetString(7));
         }
 
         if (currentKey != null)
-            result.Add(_create(nameTag, name, hasMiRecord, hasNonMiRecord, recordIds, rarities));
+        {
+            result.Add(_create(
+                nameTag,
+                name,
+                hasMiRecord,
+                hasNonMiRecord,
+                recordIds,
+                rarities,
+                availabilities));
+        }
         return result;
     }
 
@@ -127,7 +154,8 @@ internal sealed class ItemFamilyRepository
         bool hasMiRecord,
         bool hasNonMiRecord,
         IReadOnlyList<string> recordIds,
-        IEnumerable<string> rarities)
+        IEnumerable<string> rarities,
+        IEnumerable<string> availabilities)
     {
         return new ItemFamily
         {
@@ -136,7 +164,8 @@ internal sealed class ItemFamilyRepository
             HasMiRecord = hasMiRecord,
             HasNonMiRecord = hasNonMiRecord,
             RecordIds = recordIds,
-            Rarities = rarities.Order(StringComparer.OrdinalIgnoreCase).ToList()
+            Rarities = rarities.Order(StringComparer.OrdinalIgnoreCase).ToList(),
+            Availabilities = availabilities.Order(StringComparer.OrdinalIgnoreCase).ToList()
         };
     }
 }

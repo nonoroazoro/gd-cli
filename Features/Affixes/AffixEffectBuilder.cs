@@ -25,22 +25,27 @@ internal sealed partial class AffixEffectBuilder
         affix.SkillBonuses = skillBonuses;
         var result = _calculate(
             stats,
-            affix.Kind.Equals("prefix", StringComparison.OrdinalIgnoreCase),
+            affix.Family == "ascended" ||
+            string.Equals(affix.Kind, "prefix", StringComparison.OrdinalIgnoreCase),
             skillBonuses ?? []);
         affix.JitterPercent = result.JitterPercent;
         affix.UnmodeledFields = result.UnmodeledFields;
         affix.Effects = result.Effects;
     }
 
-    public void Apply(AscendedAffixRecord affix)
+    public void Apply(ItemVariantRecord variant)
     {
-        var stats = affix.Stats ?? throw new InvalidOperationException(
-            "Ascended affix stats must be loaded before effect calculation.");
+        var stats = variant.Stats ?? throw new InvalidOperationException(
+            "Variant stats must be loaded before effect calculation.");
         var skillBonuses = _buildSkillBonuses(stats);
-        affix.SkillBonuses = skillBonuses;
-        var result = _calculate(stats, true, skillBonuses ?? []);
-        affix.UnmodeledFields = result.UnmodeledFields;
-        affix.Effects = result.Effects;
+        variant.SkillBonuses = skillBonuses;
+        var result = _calculate(
+            stats,
+            variant.Kind.Equals("prefix", StringComparison.OrdinalIgnoreCase),
+            skillBonuses ?? []);
+        variant.JitterPercent = result.JitterPercent;
+        variant.UnmodeledFields = result.UnmodeledFields;
+        variant.Effects = result.Effects;
     }
 
     private (

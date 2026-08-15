@@ -12,7 +12,7 @@ internal sealed class InitializationResult
 
     public required long Records { get; init; }
 
-    public required long ItemFields { get; init; }
+    public required long RecordFields { get; init; }
 
     public required long LootGraphEdges { get; init; }
 
@@ -24,7 +24,9 @@ internal sealed class InitializationResult
 
     public required long AscendedAffixes { get; init; }
 
-    public required long AscendedSkillModifiers { get; init; }
+    public required long Variants { get; init; }
+
+    public required long AffixSkillModifiers { get; init; }
 
     public required long AffixCompatibilityRelations { get; init; }
 

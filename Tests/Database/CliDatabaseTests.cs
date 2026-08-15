@@ -12,7 +12,6 @@ public sealed class CliDatabaseTests
 
         var info = database.GetInfo();
 
-        Assert.Equal(1, info.MiCount);
         Assert.Equal(1, info.MiRecordCount);
         Assert.Equal(1, info.MiNameTagCount);
         Assert.Equal(1, info.AscendedAffixCount);

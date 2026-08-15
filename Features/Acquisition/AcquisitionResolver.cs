@@ -15,22 +15,22 @@ internal sealed class AcquisitionResolver
         _routeResolver = new LootRouteResolver(repository);
     }
 
-    public IReadOnlyList<AcquisitionResult> Resolve(IReadOnlyList<ItemRecord> items)
+    public IReadOnlyDictionary<string, IReadOnlyList<AcquisitionMethod>> Resolve(
+        IReadOnlyList<ItemRecord> items)
     {
         var recipes = _repository.LoadRecipes(items.Select(item => item.RecordId));
         var sourceItemRecords = items
             .Select(item => item.RecordId)
             .Concat(recipes.Values.SelectMany(value => value).Select(item => item.RecordId));
         var sources = _repository.LoadSources(sourceItemRecords);
-        return items.Select(item => new AcquisitionResult
-        {
-            Item = _item(item),
-            Methods = _methods(
+        return items.ToDictionary(
+            item => item.RecordId,
+            item => (IReadOnlyList<AcquisitionMethod>)_methods(
                 item.RecordId,
                 sources.GetValueOrDefault(item.RecordId) ?? [],
                 recipes.GetValueOrDefault(item.RecordId) ?? [],
-                sources)
-        }).ToList();
+                sources),
+            StringComparer.OrdinalIgnoreCase);
     }
 
     private AcquisitionActor _actor(IGrouping<string, AcquisitionSourceRecord> sources)
@@ -89,18 +89,6 @@ internal sealed class AcquisitionResolver
         return methods;
     }
 
-    private static AcquisitionItem _item(ItemRecord item)
-    {
-        return new AcquisitionItem
-        {
-            RecordId = item.RecordId,
-            Name = item.Name,
-            NameTag = item.NameTag,
-            Rarity = item.Rarity,
-            ItemClass = item.ItemClass
-        };
-    }
-
     private List<AcquisitionActor> _actors(
         IReadOnlyList<AcquisitionSourceRecord> sources,
         string kind)
@@ -148,7 +136,7 @@ internal sealed class AcquisitionResolver
     private List<AcquisitionMethod> _methods(
         string itemRecordId,
         IReadOnlyList<AcquisitionSourceRecord> directSources,
-        IReadOnlyList<AcquisitionItem> recipes,
+        IReadOnlyList<ItemSummary> recipes,
         IReadOnlyDictionary<string, List<AcquisitionSourceRecord>> allSources)
     {
         var methods = _directMethods(itemRecordId, directSources);

@@ -2,24 +2,25 @@ namespace GdCli.Database;
 
 internal static class DatabaseSchema
 {
-    public const int Version = 4;
+    public const int Version = 5;
 
     public static IReadOnlyList<string> RequiredTables { get; } = Array.AsReadOnly<string>(
     [
         "metadata",
-        "sources",
         "tags",
         "records",
         "field_names",
-        "item_fields",
+        "record_fields",
         "record_references",
         "loot_conditions",
         "items",
+        "item_sets",
+        "item_set_members",
         "affixes",
         "affix_item_classes",
-        "ascended_affixes",
         "ascended_affix_categories",
-        "ascended_skill_modifiers",
+        "item_variants",
+        "affix_skill_modifiers",
         "acquisition_sources",
         "recipes",
         "levels",
@@ -44,18 +45,6 @@ internal static class DatabaseSchema
             value TEXT NOT NULL
         ) WITHOUT ROWID;
 
-        CREATE TABLE sources (
-            name TEXT PRIMARY KEY,
-            priority INTEGER NOT NULL,
-            root_path TEXT NOT NULL,
-            arz_path TEXT NOT NULL,
-            arz_size INTEGER NOT NULL,
-            arz_modified_utc TEXT NOT NULL,
-            levels_path TEXT,
-            levels_size INTEGER,
-            levels_modified_utc TEXT
-        ) WITHOUT ROWID;
-
         CREATE TABLE tags (
             tag TEXT PRIMARY KEY,
             text TEXT NOT NULL
@@ -64,11 +53,10 @@ internal static class DatabaseSchema
         CREATE TABLE records (
             id INTEGER PRIMARY KEY,
             record_id TEXT NOT NULL UNIQUE COLLATE NOCASE,
-            source_name TEXT NOT NULL,
             class TEXT,
             template TEXT,
             name_tag TEXT,
-            display_name TEXT NOT NULL DEFAULT ''
+            display_name TEXT
         );
 
         CREATE TABLE field_names (
@@ -76,7 +64,7 @@ internal static class DatabaseSchema
             name TEXT NOT NULL UNIQUE
         );
 
-        CREATE TABLE item_fields (
+        CREATE TABLE record_fields (
             record_pk INTEGER NOT NULL,
             field_pk INTEGER NOT NULL,
             ordinal INTEGER NOT NULL,
@@ -111,23 +99,44 @@ internal static class DatabaseSchema
 
         CREATE TABLE items (
             record_pk INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
             rarity TEXT NOT NULL,
             item_class TEXT NOT NULL,
             item_level REAL NOT NULL,
             required_level REAL NOT NULL,
             is_mi INTEGER NOT NULL DEFAULT 0,
+            availability TEXT NOT NULL DEFAULT 'unresolved'
+                CHECK (availability IN ('known', 'referenced', 'unresolved', 'unavailable')),
             FOREIGN KEY (record_pk) REFERENCES records(id) ON DELETE CASCADE
         );
 
+        CREATE TABLE item_sets (
+            record_pk INTEGER PRIMARY KEY,
+            item_level REAL NOT NULL,
+            availability TEXT NOT NULL DEFAULT 'unresolved'
+                CHECK (availability IN ('known', 'referenced', 'unresolved', 'unavailable')),
+            FOREIGN KEY (record_pk) REFERENCES records(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE item_set_members (
+            set_pk INTEGER NOT NULL,
+            item_pk INTEGER NOT NULL,
+            ordinal INTEGER NOT NULL,
+            PRIMARY KEY (set_pk, item_pk),
+            UNIQUE (set_pk, ordinal),
+            FOREIGN KEY (set_pk) REFERENCES item_sets(record_pk) ON DELETE CASCADE,
+            FOREIGN KEY (item_pk) REFERENCES items(record_pk) ON DELETE CASCADE
+        ) WITHOUT ROWID;
+
         CREATE TABLE affixes (
             record_pk INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
-            kind TEXT NOT NULL,
+            family TEXT NOT NULL CHECK (family IN ('standard', 'ascended', 'variant')),
+            kind TEXT,
             rarity TEXT NOT NULL,
             item_level REAL NOT NULL,
             required_level REAL NOT NULL,
             jitter_percent REAL NOT NULL,
+            CHECK ((family = 'ascended' AND kind IS NULL) OR
+                   (family IN ('standard', 'variant') AND kind IN ('prefix', 'suffix'))),
             FOREIGN KEY (record_pk) REFERENCES records(id) ON DELETE CASCADE
         );
 
@@ -138,25 +147,33 @@ internal static class DatabaseSchema
             FOREIGN KEY (affix_pk) REFERENCES affixes(record_pk) ON DELETE CASCADE
         ) WITHOUT ROWID;
 
-        CREATE TABLE ascended_affixes (
-            record_pk INTEGER PRIMARY KEY,
-            FOREIGN KEY (record_pk) REFERENCES records(id) ON DELETE CASCADE
-        );
-
         CREATE TABLE ascended_affix_categories (
             affix_pk INTEGER NOT NULL,
             category TEXT NOT NULL COLLATE NOCASE,
             group_name TEXT NOT NULL COLLATE NOCASE,
             PRIMARY KEY (affix_pk, category, group_name),
-            FOREIGN KEY (affix_pk) REFERENCES ascended_affixes(record_pk) ON DELETE CASCADE
+            FOREIGN KEY (affix_pk) REFERENCES affixes(record_pk) ON DELETE CASCADE
         ) WITHOUT ROWID;
 
-        CREATE TABLE ascended_skill_modifiers (
+        CREATE TABLE item_variants (
+            item_pk INTEGER NOT NULL,
+            affix_pk INTEGER NOT NULL,
+            source_pk INTEGER NOT NULL,
+            PRIMARY KEY (item_pk, affix_pk, source_pk),
+            FOREIGN KEY (item_pk) REFERENCES items(record_pk) ON DELETE CASCADE,
+            FOREIGN KEY (affix_pk) REFERENCES affixes(record_pk) ON DELETE CASCADE,
+            FOREIGN KEY (source_pk) REFERENCES records(id)
+        ) WITHOUT ROWID;
+
+        CREATE TABLE affix_skill_modifiers (
             affix_pk INTEGER NOT NULL,
             modifier_pk INTEGER NOT NULL,
-            PRIMARY KEY (affix_pk, modifier_pk),
-            FOREIGN KEY (affix_pk) REFERENCES ascended_affixes(record_pk) ON DELETE CASCADE,
-            FOREIGN KEY (modifier_pk) REFERENCES records(id)
+            ordinal INTEGER NOT NULL,
+            skill_pk INTEGER,
+            PRIMARY KEY (affix_pk, ordinal),
+            FOREIGN KEY (affix_pk) REFERENCES affixes(record_pk) ON DELETE CASCADE,
+            FOREIGN KEY (modifier_pk) REFERENCES records(id),
+            FOREIGN KEY (skill_pk) REFERENCES records(id)
         ) WITHOUT ROWID;
 
         CREATE TABLE acquisition_sources (
@@ -183,9 +200,6 @@ internal static class DatabaseSchema
             source_name TEXT NOT NULL,
             level_path TEXT NOT NULL COLLATE NOCASE,
             rift_gate_record_id TEXT NOT NULL COLLATE NOCASE,
-            offset_x INTEGER NOT NULL,
-            offset_y INTEGER NOT NULL,
-            offset_z INTEGER NOT NULL,
             UNIQUE (source_name, level_path)
         );
 
@@ -318,8 +332,9 @@ internal static class DatabaseSchema
         """;
 
     public const string CreateIndexesSql = """
-        CREATE INDEX items_filter_idx ON items(rarity, item_class, required_level);
-        CREATE INDEX affixes_filter_idx ON affixes(rarity, kind, required_level);
+        CREATE INDEX items_filter_idx ON items(availability, rarity, item_class, required_level);
+        CREATE INDEX item_set_members_item_idx ON item_set_members(item_pk, set_pk);
+        CREATE INDEX affixes_filter_idx ON affixes(family, rarity, kind, required_level);
         CREATE INDEX ascended_categories_filter_idx ON ascended_affix_categories(category, affix_pk);
         CREATE INDEX placements_record_idx ON placements(record_pk);
         CREATE INDEX quests_name_idx ON quests(name COLLATE NOCASE);

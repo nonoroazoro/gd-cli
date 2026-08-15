@@ -20,9 +20,17 @@ internal sealed class ItemRecord
 
     public required bool IsMi { get; init; }
 
+    public required string Availability { get; init; }
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<MonsterSource>? MiSources { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<RawStat>? Stats { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ItemVariantRecord>? Variants { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<AcquisitionMethod>? Acquisition { get; set; }
 }

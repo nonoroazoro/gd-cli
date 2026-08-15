@@ -1,3 +1,4 @@
+using GdCli.Contracts;
 using System.Globalization;
 using GdCli.Database;
 using GdCli.Features.Acquisition;
@@ -20,10 +21,10 @@ public sealed class AcquisitionCatalogBuilderTests
                 (1, 'lootName1'),
                 (2, 'lootName2'),
                 (3, 'lootHeadItem1');
-            INSERT INTO records(id, record_id, source_name, class, template, display_name) VALUES
-                (7, 'records/items/loottables/a.dbr', 'base', 'LootTable', '', ''),
-                (8, 'records/items/loottables/b.dbr', 'base', 'LootTable', '', ''),
-                (9, 'records/creatures/monster.dbr', 'base', 'Monster', 'database/templates/monster.tpl', 'Monster');
+            INSERT INTO records(id, record_id, class, template, display_name) VALUES
+                (7, 'records/items/loottables/a.dbr', 'LootTable', '', ''),
+                (8, 'records/items/loottables/b.dbr', 'LootTable', '', ''),
+                (9, 'records/creatures/monster.dbr', 'Monster', 'database/templates/monster.tpl', 'Monster');
             INSERT INTO record_references(source_pk, field_pk, ordinal, target_pk) VALUES
                 (7, 1, 0, 2),
                 (8, 1, 0, 7),
@@ -71,17 +72,17 @@ public sealed class AcquisitionCatalogBuilderTests
                 (5, 'lootName1'),
                 (6, 'lootMisc1Item1'),
                 (7, 'marketWeaponTable');
-            INSERT INTO records(id, record_id, source_name, class, template, name_tag, display_name) VALUES
-                (7, 'records/items/blueprint.dbr', 'base', 'ItemArtifactFormula', '', 'tagBlueprint', 'Blueprint'),
-                (8, 'records/creatures/npcs/merchant.dbr', 'base', 'NpcMerchant', '', 'tagMerchant', 'Merchant'),
-                (9, 'records/creatures/npcs/market.dbr', 'base', '', 'database/templates/market.tpl', NULL, 'Market'),
-                (10, 'records/items/loottables/vendor.dbr', 'base', 'LootTable', '', NULL, 'Vendor table'),
-                (11, 'records/items/loottables/mastertables/random.dbr', 'base', 'LootMasterTable', 'database/templates/lootmastertable.tpl', NULL, 'Random table'),
-                (12, 'records/items/loottables/random.dbr', 'base', 'LootTable', '', NULL, 'Random items'),
-                (13, 'records/creatures/monster.dbr', 'base', 'Monster', 'database/templates/monster.tpl', 'tagMonster', 'Monster'),
-                (14, 'records/items/loottables/recipe.dbr', 'base', 'LootTable', '', NULL, 'Recipe table');
-            INSERT INTO items(record_pk, name, rarity, item_class, item_level, required_level, is_mi)
-            VALUES (7, 'Blueprint', 'Legendary', 'ItemArtifactFormula', 1, 0, 0);
+            INSERT INTO records(id, record_id, class, template, name_tag, display_name) VALUES
+                (7, 'records/items/blueprint.dbr', 'ItemArtifactFormula', '', 'tagBlueprint', 'Blueprint'),
+                (8, 'records/creatures/npcs/merchant.dbr', 'NpcMerchant', '', 'tagMerchant', 'Merchant'),
+                (9, 'records/creatures/npcs/market.dbr', '', 'database/templates/market.tpl', NULL, 'Market'),
+                (10, 'records/items/loottables/vendor.dbr', 'LootTable', '', NULL, 'Vendor table'),
+                (11, 'records/items/loottables/mastertables/random.dbr', 'LootMasterTable', 'database/templates/lootmastertable.tpl', NULL, 'Random table'),
+                (12, 'records/items/loottables/random.dbr', 'LootTable', '', NULL, 'Random items'),
+                (13, 'records/creatures/monster.dbr', 'Monster', 'database/templates/monster.tpl', 'tagMonster', 'Monster'),
+                (14, 'records/items/loottables/recipe.dbr', 'LootTable', '', NULL, 'Recipe table');
+            INSERT INTO items(record_pk, rarity, item_class, item_level, required_level, is_mi)
+            VALUES (7, 'Legendary', 'ItemArtifactFormula', 1, 0, 0);
             INSERT INTO record_references(source_pk, field_pk, ordinal, target_pk) VALUES
                 (7, 1, 0, 14),
                 (14, 4, 0, 2),
@@ -147,16 +148,16 @@ public sealed class AcquisitionCatalogBuilderTests
                 (4, 'marketFileName'),
                 (5, 'marketWaistTable'),
                 (6, 'unused');
-            INSERT INTO records(id, record_id, source_name, class, template, name_tag, display_name) VALUES
-                (7, 'records/items/loottables/specific.dbr', 'base', 'LootTable', '', NULL, 'Specific table'),
-                (8, 'records/creatures/monster.dbr', 'base', 'Monster', 'database/templates/monster.tpl', 'tagMonster', 'Monster'),
-                (9, 'records/proxies/monster.dbr', 'base', 'Proxy', '', NULL, 'Monster proxy'),
-                (10, 'records/creatures/npcs/merchant.dbr', 'base', 'NpcMerchant', '', 'tagMerchant', 'Merchant'),
-                (11, 'records/creatures/npcs/market.dbr', 'base', '', 'database/templates/market.tpl', NULL, 'Market'),
-                (12, 'records/items/loottables/vendor.dbr', 'base', 'LootTable', '', NULL, 'Vendor table'),
-                (13, 'records/proxies/merchant.dbr', 'base', 'Proxy', '', NULL, 'Merchant proxy'),
-                (14, 'records/unused/source.dbr', 'base', '', '', NULL, 'Unused source'),
-                (15, 'records/unused/target.dbr', 'base', '', '', NULL, 'Unused target');
+            INSERT INTO records(id, record_id, class, template, name_tag, display_name) VALUES
+                (7, 'records/items/loottables/specific.dbr', 'LootTable', '', NULL, 'Specific table'),
+                (8, 'records/creatures/monster.dbr', 'Monster', 'database/templates/monster.tpl', 'tagMonster', 'Monster'),
+                (9, 'records/proxies/monster.dbr', 'Proxy', '', NULL, 'Monster proxy'),
+                (10, 'records/creatures/npcs/merchant.dbr', 'NpcMerchant', '', 'tagMerchant', 'Merchant'),
+                (11, 'records/creatures/npcs/market.dbr', '', 'database/templates/market.tpl', NULL, 'Market'),
+                (12, 'records/items/loottables/vendor.dbr', 'LootTable', '', NULL, 'Vendor table'),
+                (13, 'records/proxies/merchant.dbr', 'Proxy', '', NULL, 'Merchant proxy'),
+                (14, 'records/unused/source.dbr', '', '', NULL, 'Unused source'),
+                (15, 'records/unused/target.dbr', '', '', NULL, 'Unused target');
             INSERT INTO record_references(source_pk, field_pk, ordinal, target_pk) VALUES
                 (7, 1, 0, 2),
                 (8, 2, 0, 7),
@@ -170,20 +171,20 @@ public sealed class AcquisitionCatalogBuilderTests
 
         fixture.Execute(AcquisitionCatalogBuilder.Build);
         fixture.Execute("""
-            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id, offset_x, offset_y, offset_z) VALUES
-                (1, 'base', 'world/monster', 'records/rift.dbr', 0, 0, 0),
-                (2, 'base', 'world/vendor', 'records/rift.dbr', 0, 0, 0);
+            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id) VALUES
+                (1, 'base', 'world/monster', 'records/rift.dbr'),
+                (2, 'base', 'world/vendor', 'records/rift.dbr');
             INSERT INTO placements(level_pk, entity_ordinal, record_pk, world_x, world_y, world_z) VALUES
                 (1, 0, 9, 1, 2, 3),
                 (2, 0, 13, 4, 5, 6);
             """);
+        fixture.Execute(AcquisitionGraphPruner.Prune);
 
         using var database = new CliDatabase(fixture.Path);
-        var item = database.Items.FindByRecordId("records/items/gearweapons/test.dbr")
-            ?? throw new InvalidOperationException();
-        var result = Assert.Single(new AcquisitionResolver(database.Acquisitions).Resolve([item]));
-        var vendor = Assert.Single(result.Methods, method => method.Kind == "vendor");
-        var monster = Assert.Single(result.Methods, method => method.Kind == "specificMonster");
+        var item = _item(database, "records/items/gearweapons/test.dbr");
+        var methods = new AcquisitionResolver(database.Acquisitions).Resolve([item])[item.RecordId];
+        var vendor = Assert.Single(methods, method => method.Kind == "vendor");
+        var monster = Assert.Single(methods, method => method.Kind == "specificMonster");
 
         Assert.Equal("world/vendor", Assert.Single(Assert.Single(vendor.Actors ?? []).Locations).Level);
         Assert.Equal(
@@ -209,5 +210,19 @@ public sealed class AcquisitionCatalogBuilderTests
         }.ToString());
         connection.Open();
         return connection;
+    }
+
+    private static ItemRecord _item(CliDatabase database, string recordId)
+    {
+        var filter = new ItemFilter(
+            null,
+            null,
+            null,
+            null,
+            null,
+            IncludeUnavailable: true,
+            Query: recordId,
+            ExactQuery: true);
+        return Assert.Single(database.Items.Load(filter, 0, 1));
     }
 }

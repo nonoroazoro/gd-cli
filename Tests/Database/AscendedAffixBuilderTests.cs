@@ -24,12 +24,12 @@ public sealed class AscendedAffixBuilderTests
             using var setup = connection.CreateCommand();
             setup.Transaction = transaction;
             setup.CommandText = """
-                DELETE FROM ascended_skill_modifiers;
+                DELETE FROM affix_skill_modifiers;
                 DELETE FROM ascended_affix_categories;
-                DELETE FROM ascended_affixes;
-                INSERT INTO records(id, record_id, source_name, class, display_name) VALUES
-                    (30, 'records/items/crafting/ascension/formula.dbr', 'gdx3', 'ItemAscensionFormula', 'formula'),
-                    (31, 'records/items/lootaffixes/ascended/table.dbr', 'gdx3', 'LootRandomizerTable', 'table');
+                DELETE FROM affixes WHERE family = 'ascended';
+                INSERT INTO records(id, record_id, class, display_name) VALUES
+                    (30, 'records/items/crafting/ascension/formula.dbr', 'ItemAscensionFormula', 'formula'),
+                    (31, 'records/items/lootaffixes/ascended/table.dbr', 'LootRandomizerTable', 'table');
                 INSERT INTO field_names(id, name) VALUES
                     (30, @formulaField),
                     (31, 'randomizerName1');
@@ -43,8 +43,8 @@ public sealed class AscendedAffixBuilderTests
         });
 
         using var database = new CliDatabase(fixture.Path);
-        var affix = Assert.Single(database.AscendedAffixes.Load(
-            new AscendedAffixFilter(expectedCategory),
+        var affix = Assert.Single(database.Affixes.Load(
+            new AffixFilter("ascended", null, null, null, expectedCategory, null, null),
             0,
             null));
 
@@ -61,12 +61,12 @@ public sealed class AscendedAffixBuilderTests
             using var setup = connection.CreateCommand();
             setup.Transaction = transaction;
             setup.CommandText = """
-                DELETE FROM ascended_skill_modifiers;
+                DELETE FROM affix_skill_modifiers;
                 DELETE FROM ascended_affix_categories;
-                DELETE FROM ascended_affixes;
-                INSERT INTO records(id, record_id, source_name, class, display_name) VALUES
-                    (30, 'records/items/crafting/ascension/formula.dbr', 'gdx3', 'ItemAscensionFormula', 'formula'),
-                    (31, 'records/items/lootaffixes/ascended/table.dbr', 'gdx3', 'LootRandomizerTable', 'table');
+                DELETE FROM affixes WHERE family = 'ascended';
+                INSERT INTO records(id, record_id, class, display_name) VALUES
+                    (30, 'records/items/crafting/ascension/formula.dbr', 'ItemAscensionFormula', 'formula'),
+                    (31, 'records/items/lootaffixes/ascended/table.dbr', 'LootRandomizerTable', 'table');
                 INSERT INTO field_names(id, name) VALUES
                     (30, 'oneHandMeleeTablesAffix1'),
                     (31, 'randomizerName1'),
@@ -78,16 +78,17 @@ public sealed class AscendedAffixBuilderTests
                 """;
             setup.ExecuteNonQuery();
             AscendedAffixBuilder.Build(connection, transaction);
+            AffixSkillModifierBuilder.Build(connection, transaction);
         });
 
         using var database = new CliDatabase(fixture.Path);
-        var affix = Assert.Single(database.AscendedAffixes.Load(
-            new AscendedAffixFilter("oneHandMelee"),
+        var affix = Assert.Single(database.Affixes.Load(
+            new AffixFilter("ascended", null, null, null, "oneHandMelee", null, null),
             0,
             null));
 
         Assert.Equal(["oneHandMelee"], affix.Categories);
         Assert.Equal(["affix"], affix.Groups);
-        Assert.Single(database.AscendedAffixes.LoadSkillModifiers([affix.RecordId])[affix.RecordId]);
+        Assert.Single(database.AffixSkillModifiers.Load([affix.RecordId])[affix.RecordId]);
     }
 }

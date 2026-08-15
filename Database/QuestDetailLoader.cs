@@ -184,7 +184,8 @@ internal sealed class QuestDetailLoader
         using var command = _connection.CreateCommand();
         var parameters = SqliteQuery.AddValues(command, "quest", paths);
         command.CommandText = $"""
-            SELECT Q.quest_path, E.id, E.node_pk, E.role, R.record_id, R.display_name, E.origin_path
+            SELECT Q.quest_path, E.id, E.node_pk, E.role, R.record_id,
+                   COALESCE(R.display_name, R.record_id), E.origin_path
             FROM quest_entities E
             JOIN quests Q ON Q.id = E.quest_pk
             JOIN records R ON R.id = E.record_pk

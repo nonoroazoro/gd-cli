@@ -2,15 +2,23 @@ using System.Text.Json.Serialization;
 
 namespace GdCli.Contracts;
 
-internal sealed class AscendedAffixRecord
+internal sealed class ItemVariantRecord
 {
     public required string RecordId { get; init; }
 
     public required string Name { get; init; }
 
-    public required IReadOnlyList<string> Categories { get; init; }
+    public required string Kind { get; init; }
 
-    public required IReadOnlyList<string> Groups { get; init; }
+    public required string Rarity { get; init; }
+
+    public required double ItemLevel { get; init; }
+
+    public required double RequiredLevel { get; init; }
+
+    public required double JitterPercent { get; set; }
+
+    public required IReadOnlyList<string> SourceRecordIds { get; init; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<RawStat>? Stats { get; set; }
@@ -25,5 +33,5 @@ internal sealed class AscendedAffixRecord
     public IReadOnlyList<string>? UnmodeledFields { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public IReadOnlyList<AscendedSkillModifier>? SkillModifiers { get; set; }
+    public IReadOnlyList<AffixSkillModifier>? SkillModifiers { get; set; }
 }

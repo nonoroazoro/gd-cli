@@ -16,9 +16,22 @@ internal sealed class SchemaDescription
 
     public required IReadOnlyList<string> ItemClasses { get; init; }
 
+    public required IReadOnlyList<string> AffixFamilies { get; init; }
+
     public required IReadOnlyList<string> AffixKinds { get; init; }
 
     public required IReadOnlyList<string> AscendedCategories { get; init; }
+
+    public required IReadOnlyList<string> Availabilities { get; init; }
+
+    public IReadOnlyDictionary<string, string> AvailabilityValues { get; init; } =
+        new Dictionary<string, string>
+        {
+            ["known"] = "supported acquisition or recipe evidence exists",
+            ["referenced"] = "live game, map, or quest data references the record",
+            ["unresolved"] = "available evidence is insufficient",
+            ["unavailable"] = "explicit exclusion evidence exists without a live path"
+        };
 
     public IReadOnlyDictionary<string, string> InfoFields { get; init; } =
         new Dictionary<string, string>
@@ -30,15 +43,17 @@ internal sealed class SchemaDescription
             ["userVersion"] = "CLI database schema version",
             ["recordCount"] = "number of imported game records",
             ["itemCount"] = "number of item records",
+            ["itemSetCount"] = "number of item set records",
             ["affixCount"] = "number of Prefix and Suffix records",
             ["ascendedAffixCount"] = "number of Ascended affix records",
             ["ascendedSkillModifierCount"] = "number of distinct Ascended skill modifiers",
+            ["variantCount"] = "number of game-defined item variants",
+            ["variantSkillModifierCount"] = "number of distinct variant skill modifiers",
             ["levelCount"] = "number of map levels",
             ["placementCount"] = "number of relevant map placements",
             ["questCount"] = "number of quest definitions",
             ["questNodeCount"] = "number of quest graph nodes",
             ["questEntityCount"] = "number of quest entity relations",
-            ["miCount"] = "compatibility alias of miRecordCount",
             ["miRecordCount"] = "number of MI item records",
             ["miNameTagCount"] = "number of distinct name tags containing MI records",
             ["acquisitionSourceCount"] = "number of derived item acquisition sources",
@@ -47,8 +62,10 @@ internal sealed class SchemaDescription
             ["gameDirectory"] = "game directory used by init",
             ["rarities"] = "valid rarity filter values",
             ["itemClasses"] = "valid itemClass filter values",
+            ["affixFamilies"] = "standard and ascended affix families",
             ["affixKinds"] = "valid normal affix kind values",
-            ["ascendedCategories"] = "valid Ascended category filter values"
+            ["ascendedCategories"] = "valid Ascended category filter values",
+            ["availabilities"] = "known, referenced, unresolved, and unavailable item values"
         };
 
     public IReadOnlyDictionary<string, string> ItemFields { get; init; } =
@@ -62,8 +79,18 @@ internal sealed class SchemaDescription
             ["itemLevel"] = "number",
             ["requiredLevel"] = "number",
             ["isMi"] = "boolean derived from monster-specific drop relations",
+            ["availability"] = "known, referenced, unresolved, or unavailable",
             ["miSources"] = "MonsterSource[]",
-            ["stats"] = "RawStat[]"
+            ["stats"] = "RawStat[]",
+            ["variants"] = "game-defined variants for a queried item",
+            ["acquisition"] = "vendor, monster, random drop, craft, or unknown methods for a queried item"
+        };
+
+    public IReadOnlyDictionary<string, string> ItemQueryFields { get; init; } =
+        new Dictionary<string, string>
+        {
+            ["data"] = "matching item records",
+            ["itemSets"] = "sets related to queried items; empty when none and omitted for catalog listings"
         };
 
     public IReadOnlyDictionary<string, string> ItemFamilyFields { get; init; } =
@@ -74,14 +101,44 @@ internal sealed class SchemaDescription
             ["hasMiRecord"] = "boolean",
             ["hasNonMiRecord"] = "boolean",
             ["recordIds"] = "string[]",
-            ["rarities"] = "string[]"
+            ["rarities"] = "string[]",
+            ["availabilities"] = "string[]"
+        };
+
+    public IReadOnlyDictionary<string, string> ItemSetFields { get; init; } =
+        new Dictionary<string, string>
+        {
+            ["recordId"] = "stable item set record ID",
+            ["name"] = "localized setName text",
+            ["nameTag"] = "stable setName tag",
+            ["itemLevel"] = "number",
+            ["availability"] = "aggregate member availability",
+            ["members"] = "ordered item set members",
+            ["stats"] = "RawStat[] for set bonuses"
+        };
+
+    public IReadOnlyDictionary<string, string> ItemVariantFields { get; init; } =
+        new Dictionary<string, string>
+        {
+            ["recordId"] = "stable unique affix record ID",
+            ["name"] = "localized game text or source description",
+            ["kind"] = "prefix or suffix",
+            ["rarity"] = "string from itemClassification",
+            ["itemLevel"] = "number",
+            ["requiredLevel"] = "number",
+            ["jitterPercent"] = "number from lootRandomizerJitter",
+            ["stats"] = "variant RawStat[] with numeric boundaries",
+            ["effects"] = "English minimum and maximum direct effect text",
+            ["skillBonuses"] = "resolved direct skill level bonuses",
+            ["skillModifiers"] = "modified skills and complete skill modifier RawStat[]",
+            ["unmodeledFields"] = "raw fields not modeled by the range engine",
+            ["sourceRecordIds"] = "dynamic loot tables defining the variant"
         };
 
     public IReadOnlyDictionary<string, string> AcquisitionFields { get; init; } =
         new Dictionary<string, string>
         {
-            ["item"] = "queried item identity",
-            ["methods"] = "vendor, specificMonster, randomDrop, craft, or unknown acquisition methods",
+            ["kind"] = "vendor, specificMonster, randomDrop, craft, or unknown; unknown does not imply unavailable",
             ["recipe"] = "craft recipe or design identity when kind is craft",
             ["sources"] = "known recipe acquisition methods when kind is craft",
             ["actors"] = "grouped source monsters or vendors with all stable record IDs and available map locations",
@@ -98,7 +155,10 @@ internal sealed class SchemaDescription
         {
             ["recordId"] = "string",
             ["name"] = "string from lootRandomizerName and ItemTag",
-            ["kind"] = "prefix or suffix",
+            ["family"] = "standard or ascended",
+            ["kind"] = "prefix or suffix for standard affixes",
+            ["categories"] = "game-native categories for Ascended affixes",
+            ["groups"] = "table groups for Ascended affixes",
             ["rarity"] = "string from itemClassification",
             ["itemLevel"] = "number",
             ["requiredLevel"] = "number",
@@ -106,6 +166,7 @@ internal sealed class SchemaDescription
             ["stats"] = "RawStat[] with numeric boundaries",
             ["effects"] = "English minimum and maximum effect text, including skill bonuses and chance effects",
             ["skillBonuses"] = "resolved skill level bonuses with stable record IDs",
+            ["skillModifiers"] = "referenced skill modifier records for Ascended affixes",
             ["unmodeledFields"] = "raw fields not modeled by the range engine"
         };
 
@@ -118,20 +179,6 @@ internal sealed class SchemaDescription
             ["edges"] = "quest and task state transitions",
             ["entities"] = "quest actors and targets with available key coordinates",
             ["unresolvedReferences"] = "references that could not be mapped to a game record or actor"
-        };
-
-    public IReadOnlyDictionary<string, string> AscendedAffixFields { get; init; } =
-        new Dictionary<string, string>
-        {
-            ["recordId"] = "string",
-            ["name"] = "localized game text or source description",
-            ["categories"] = "game-native ascension equipment categories",
-            ["groups"] = "affix or mastery table groups",
-            ["stats"] = "direct RawStat[] with numeric boundaries",
-            ["effects"] = "English minimum and maximum direct effect text",
-            ["skillBonuses"] = "resolved direct skill level bonuses with stable record IDs",
-            ["unmodeledFields"] = "raw direct fields not modeled by the range engine",
-            ["skillModifiers"] = "referenced skill modifier records and RawStat[]"
         };
 
     public IReadOnlyDictionary<string, bool> Capabilities { get; init; } =
@@ -148,6 +195,9 @@ internal sealed class SchemaDescription
             ["craftAcquisition"] = true,
             ["acquisitionMapLocations"] = true,
             ["itemFamilies"] = true,
+            ["itemSets"] = true,
+            ["itemVariants"] = true,
+            ["itemAvailability"] = true,
             ["jmesPathQuery"] = true,
             ["itemAffixCompatibility"] = true,
             ["ascendedAffixes"] = true,

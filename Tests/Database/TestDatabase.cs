@@ -25,37 +25,36 @@ internal sealed class TestDatabase : IDisposable
                 ('gameLanguage', 'EN'),
                 ('gameDirectory', 'test');
 
-            INSERT INTO records(id, record_id, source_name, class, name_tag, display_name) VALUES
-                (1, 'records/items/a.dbr', 'base', 'Item', 'tagAlpha', 'Alpha'),
-                (2, 'records/items/b.dbr', 'base', 'Item', 'tagShared', 'Beta'),
-                (3, 'records/items/c.dbr', 'base', 'Item', 'tagShared', 'Alpine'),
-                (4, 'records/items/percent.dbr', 'base', 'Item', '', '100% Blade'),
-                (5, 'records/affixes/a.dbr', 'base', 'Affix', NULL, 'Balanced'),
-                (6, 'records/affixes/b.dbr', 'base', 'Affix', NULL, 'Savage'),
-                (900, 'records/items/lootaffixes/ascended/a.dbr', 'gdx3', 'LootRandomizer', NULL, 'Ascended Power'),
-                (901, 'records/skills/itemskillsgdx3/skillmodifiers/ascended/a.dbr', 'gdx3', 'SkillModifier', NULL, 'Skill Power');
+            INSERT INTO records(id, record_id, class, name_tag, display_name) VALUES
+                (1, 'records/items/a.dbr', 'Item', 'tagAlpha', 'Alpha'),
+                (2, 'records/items/b.dbr', 'Item', 'tagShared', 'Beta'),
+                (3, 'records/items/c.dbr', 'Item', 'tagShared', 'Alpine'),
+                (4, 'records/items/percent.dbr', 'Item', '', '100% Blade'),
+                (5, 'records/affixes/a.dbr', 'Affix', NULL, 'Balanced'),
+                (6, 'records/affixes/b.dbr', 'Affix', NULL, 'Savage'),
+                (900, 'records/items/lootaffixes/ascended/a.dbr', 'LootRandomizer', NULL, 'Ascended Power'),
+                (901, 'records/skills/itemskillsgdx3/skillmodifiers/ascended/a.dbr', 'SkillModifier', NULL, 'Skill Power');
 
-            INSERT INTO items(record_pk, name, rarity, item_class, item_level, required_level, is_mi) VALUES
-                (1, 'Alpha', 'Common', 'Sword', 1, 1, 0),
-                (2, 'Beta', 'Rare', 'Mace', 10, 10, 1),
-                (3, 'Alpine', 'Rare', 'Mace', 20, 20, 0),
-                (4, '100% Blade', 'Rare', 'Sword', 30, 30, 0);
+            INSERT INTO items(record_pk, rarity, item_class, item_level, required_level, is_mi) VALUES
+                (1, 'Common', 'Sword', 1, 1, 0),
+                (2, 'Rare', 'Mace', 10, 10, 1),
+                (3, 'Rare', 'Mace', 20, 20, 0),
+                (4, 'Rare', 'Sword', 30, 30, 0);
 
-            INSERT INTO affixes(record_pk, name, kind, rarity, item_level, required_level, jitter_percent) VALUES
-                (5, 'Balanced', 'prefix', 'Rare', 10, 10, 10),
-                (6, 'Savage', 'suffix', 'Magical', 20, 20, 5);
+            INSERT INTO affixes(record_pk, family, kind, rarity, item_level, required_level, jitter_percent) VALUES
+                (5, 'standard', 'prefix', 'Rare', 10, 10, 10),
+                (6, 'standard', 'suffix', 'Magical', 20, 20, 5),
+                (900, 'ascended', NULL, 'Legendary', 94, 94, 0);
 
             INSERT INTO affix_item_classes(item_class, affix_pk) VALUES
                 ('Mace', 5),
                 ('Sword', 6);
 
-            INSERT INTO ascended_affixes(record_pk) VALUES (900);
-
             INSERT INTO ascended_affix_categories(affix_pk, category, group_name) VALUES
                 (900, 'oneHandMelee', 'affix');
 
-            INSERT INTO ascended_skill_modifiers(affix_pk, modifier_pk) VALUES
-                (900, 901);
+            INSERT INTO affix_skill_modifiers(affix_pk, modifier_pk, ordinal, skill_pk) VALUES
+                (900, 901, 1, NULL);
             """);
         _execute(connection, GdCli.Database.DatabaseSchema.CreateIndexesSql);
         _execute(connection, GdCli.Database.DatabaseSchema.CreateBuildIndexesSql);

@@ -9,10 +9,10 @@ public sealed class QuestRepositoryTests
     {
         using var databaseFile = new TestDatabase();
         databaseFile.Execute("""
-            INSERT INTO records(id, record_id, source_name, class, display_name) VALUES
-                (100, 'records/creatures/npcs/yurgryn.dbr', 'gdx3', 'NPC', 'Yurgryn'),
-                (101, 'records/scriptentities/yurgryn_state.dbr', 'gdx3', 'ScriptEntity', ''),
-                (102, 'records/ui/riftgatemap/locations/test.dbr', 'gdx3', 'Map', '');
+            INSERT INTO records(id, record_id, class, display_name) VALUES
+                (100, 'records/creatures/npcs/yurgryn.dbr', 'NPC', 'Yurgryn'),
+                (101, 'records/scriptentities/yurgryn_state.dbr', 'ScriptEntity', ''),
+                (102, 'records/ui/riftgatemap/locations/test.dbr', 'Map', '');
             INSERT INTO quests(id, quest_path, source_name, uid, flags, region, name) VALUES
                 (1, 'quests/test/breach.qst', 'gdx3', 10, 0, 'Test', 'Into the Breach');
             INSERT INTO quest_nodes(
@@ -28,8 +28,8 @@ public sealed class QuestRepositoryTests
                 (2, 1, 2, 100, 'participant', 'conversations/test.cnv');
             INSERT INTO entity_aliases(alias_pk, placed_pk, origin_path) VALUES
                 (100, 101, 'Quest.onAddToWorld');
-            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id, offset_x, offset_y, offset_z) VALUES
-                (1, 'gdx3', 'levels/test.lvl', 'records/ui/riftgatemap/locations/test.dbr', 0, 0, 0);
+            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id) VALUES
+                (1, 'gdx3', 'levels/test.lvl', 'records/ui/riftgatemap/locations/test.dbr');
             INSERT INTO placements(level_pk, entity_ordinal, record_pk, world_x, world_y, world_z) VALUES
                 (1, 0, 101, 10.5, 20.5, 30.5);
             """);

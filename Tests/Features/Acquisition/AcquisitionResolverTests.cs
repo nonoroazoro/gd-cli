@@ -1,3 +1,4 @@
+using GdCli.Contracts;
 using GdCli.Database;
 using GdCli.Features.Acquisition;
 using GdCli.Tests.Database;
@@ -11,12 +12,11 @@ public sealed class AcquisitionResolverTests
     {
         using var fixture = new TestDatabase();
         using var database = new CliDatabase(fixture.Path);
-        var item = database.Items.FindByRecordId("records/items/a.dbr")
-            ?? throw new InvalidOperationException();
+        var item = _item(database, "records/items/a.dbr");
 
-        var result = Assert.Single(new AcquisitionResolver(database.Acquisitions).Resolve([item]));
+        var methods = new AcquisitionResolver(database.Acquisitions).Resolve([item])[item.RecordId];
 
-        Assert.Equal("unknown", Assert.Single(result.Methods).Kind);
+        Assert.Equal("unknown", Assert.Single(methods).Kind);
     }
 
     [Fact]
@@ -27,10 +27,10 @@ public sealed class AcquisitionResolverTests
             INSERT INTO field_names(id, name) VALUES
                 (1, 'lootHeadItem1'),
                 (2, 'pool1');
-            INSERT INTO records(id, record_id, source_name, class, name_tag, display_name) VALUES
-                (7, 'records/creatures/monster_a.dbr', 'base', 'Monster', 'tagMonster', 'Monster'),
-                (8, 'records/creatures/monster_b.dbr', 'base', 'Monster', 'tagMonster', 'Monster'),
-                (9, 'records/proxies/monster.dbr', 'base', 'Proxy', NULL, 'Proxy');
+            INSERT INTO records(id, record_id, class, name_tag, display_name) VALUES
+                (7, 'records/creatures/monster_a.dbr', 'Monster', 'tagMonster', 'Monster'),
+                (8, 'records/creatures/monster_b.dbr', 'Monster', 'tagMonster', 'Monster'),
+                (9, 'records/proxies/monster.dbr', 'Proxy', NULL, 'Proxy');
             INSERT INTO acquisition_sources(item_pk, kind, source_pk) VALUES
                 (2, 'specificMonster', 7),
                 (2, 'specificMonster', 8);
@@ -38,17 +38,16 @@ public sealed class AcquisitionResolverTests
                 (7, 1, 0, 2),
                 (9, 2, 0, 7),
                 (9, 2, 1, 8);
-            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id, offset_x, offset_y, offset_z)
-            VALUES (1, 'base', 'world/proxy', 'records/rift.dbr', 0, 0, 0);
+            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id)
+            VALUES (1, 'base', 'world/proxy', 'records/rift.dbr');
             INSERT INTO placements(level_pk, entity_ordinal, record_pk, world_x, world_y, world_z)
             VALUES (1, 0, 9, 1, 2, 3);
             """);
         using var database = new CliDatabase(fixture.Path);
-        var item = database.Items.FindByRecordId("records/items/b.dbr")
-            ?? throw new InvalidOperationException();
+        var item = _item(database, "records/items/b.dbr");
 
-        var result = Assert.Single(new AcquisitionResolver(database.Acquisitions).Resolve([item]));
-        var method = Assert.Single(result.Methods);
+        var methods = new AcquisitionResolver(database.Acquisitions).Resolve([item])[item.RecordId];
+        var method = Assert.Single(methods);
         var actor = Assert.Single(method.Actors ?? []);
         var route = Assert.Single(method.Routes ?? []);
 
@@ -64,11 +63,11 @@ public sealed class AcquisitionResolverTests
     {
         using var fixture = new TestDatabase();
         fixture.Execute("""
-            INSERT INTO records(id, record_id, source_name, class, display_name) VALUES
-                (7, 'records/creatures/a.dbr', 'base', 'Monster', 'Shared name'),
-                (8, 'records/creatures/b.dbr', 'base', 'Monster', 'Shared name'),
-                (9, 'records/creatures/c.dbr', 'base', 'Monster', ''),
-                (10, 'records/creatures/d.dbr', 'base', 'Monster', '');
+            INSERT INTO records(id, record_id, class, display_name) VALUES
+                (7, 'records/creatures/a.dbr', 'Monster', 'Shared name'),
+                (8, 'records/creatures/b.dbr', 'Monster', 'Shared name'),
+                (9, 'records/creatures/c.dbr', 'Monster', ''),
+                (10, 'records/creatures/d.dbr', 'Monster', '');
             INSERT INTO acquisition_sources(item_pk, kind, source_pk) VALUES
                 (2, 'specificMonster', 7),
                 (2, 'specificMonster', 8),
@@ -76,11 +75,10 @@ public sealed class AcquisitionResolverTests
                 (2, 'specificMonster', 10);
             """);
         using var database = new CliDatabase(fixture.Path);
-        var item = database.Items.FindByRecordId("records/items/b.dbr")
-            ?? throw new InvalidOperationException();
+        var item = _item(database, "records/items/b.dbr");
 
-        var result = Assert.Single(new AcquisitionResolver(database.Acquisitions).Resolve([item]));
-        var actors = Assert.Single(result.Methods).Actors ?? [];
+        var methods = new AcquisitionResolver(database.Acquisitions).Resolve([item])[item.RecordId];
+        var actors = Assert.Single(methods).Actors ?? [];
 
         Assert.Equal(4, actors.Count);
         Assert.All(actors, actor => Assert.Single(actor.RecordIds));
@@ -99,20 +97,19 @@ public sealed class AcquisitionResolverTests
     {
         using var fixture = new TestDatabase();
         fixture.Execute("""
-            INSERT INTO records(id, record_id, source_name, class, name_tag, display_name)
-            VALUES (7, 'records/creatures/npcs/merchant.dbr', 'base', 'NpcMerchant', 'tagMerchant', 'Merchant');
+            INSERT INTO records(id, record_id, class, name_tag, display_name)
+            VALUES (7, 'records/creatures/npcs/merchant.dbr', 'NpcMerchant', 'tagMerchant', 'Merchant');
             INSERT INTO acquisition_sources(item_pk, kind, source_pk) VALUES (2, 'vendor', 7);
-            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id, offset_x, offset_y, offset_z)
-            VALUES (1, 'base', 'world/vendor', 'records/rift.dbr', 0, 0, 0);
+            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id)
+            VALUES (1, 'base', 'world/vendor', 'records/rift.dbr');
             INSERT INTO placements(level_pk, entity_ordinal, record_pk, world_x, world_y, world_z)
             VALUES (1, 0, 7, 1, 2, 3);
             """);
         using var database = new CliDatabase(fixture.Path);
-        var item = database.Items.FindByRecordId("records/items/b.dbr")
-            ?? throw new InvalidOperationException();
+        var item = _item(database, "records/items/b.dbr");
 
-        var result = Assert.Single(new AcquisitionResolver(database.Acquisitions).Resolve([item]));
-        var method = Assert.Single(result.Methods);
+        var methods = new AcquisitionResolver(database.Acquisitions).Resolve([item])[item.RecordId];
+        var method = Assert.Single(methods);
         var actor = Assert.Single(method.Actors ?? []);
 
         Assert.Equal("vendor", method.Kind);
@@ -125,17 +122,16 @@ public sealed class AcquisitionResolverTests
     {
         using var fixture = new TestDatabase();
         fixture.Execute("""
-            INSERT INTO records(id, record_id, source_name, class, display_name)
-            VALUES (7, 'records/creatures/monster.dbr', 'base', 'Monster', 'Monster');
+            INSERT INTO records(id, record_id, class, display_name)
+            VALUES (7, 'records/creatures/monster.dbr', 'Monster', 'Monster');
             INSERT INTO acquisition_sources(item_pk, kind, source_pk)
             VALUES (2, 'specificMonster', 7);
             """);
         using var database = new CliDatabase(fixture.Path);
-        var item = database.Items.FindByRecordId("records/items/b.dbr")
-            ?? throw new InvalidOperationException();
+        var item = _item(database, "records/items/b.dbr");
 
-        var result = Assert.Single(new AcquisitionResolver(database.Acquisitions).Resolve([item]));
-        var method = Assert.Single(result.Methods);
+        var methods = new AcquisitionResolver(database.Acquisitions).Resolve([item])[item.RecordId];
+        var method = Assert.Single(methods);
 
         Assert.Equal("specificMonster", method.Kind);
         Assert.Equal(
@@ -150,29 +146,28 @@ public sealed class AcquisitionResolverTests
     {
         using var fixture = new TestDatabase();
         fixture.Execute("""
-            INSERT INTO records(id, record_id, source_name, class, name_tag, display_name) VALUES
-                (7, 'records/items/blueprint.dbr', 'base', 'ItemArtifactFormula', 'tagBlueprint', 'Blueprint'),
-                (8, 'records/creatures/npcs/merchant.dbr', 'base', 'NpcMerchant', 'tagMerchant', 'Merchant');
-            INSERT INTO items(record_pk, name, rarity, item_class, item_level, required_level, is_mi)
-            VALUES (7, 'Blueprint', 'Legendary', 'ItemArtifactFormula', 1, 0, 0);
+            INSERT INTO records(id, record_id, class, name_tag, display_name) VALUES
+                (7, 'records/items/blueprint.dbr', 'ItemArtifactFormula', 'tagBlueprint', 'Blueprint'),
+                (8, 'records/creatures/npcs/merchant.dbr', 'NpcMerchant', 'tagMerchant', 'Merchant');
+            INSERT INTO items(record_pk, rarity, item_class, item_level, required_level, is_mi)
+            VALUES (7, 'Legendary', 'ItemArtifactFormula', 1, 0, 0);
             INSERT INTO recipes(result_item_pk, recipe_item_pk) VALUES (2, 7);
             INSERT INTO acquisition_sources(item_pk, kind, source_pk) VALUES
                 (2, 'randomDrop', NULL),
                 (7, 'vendor', 8),
                 (7, 'randomDrop', NULL);
-            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id, offset_x, offset_y, offset_z)
-            VALUES (1, 'base', 'world/vendor', 'records/rift.dbr', 0, 0, 0);
+            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id)
+            VALUES (1, 'base', 'world/vendor', 'records/rift.dbr');
             INSERT INTO placements(level_pk, entity_ordinal, record_pk, world_x, world_y, world_z)
             VALUES (1, 0, 8, 1, 2, 3);
             """);
         using var database = new CliDatabase(fixture.Path);
-        var item = database.Items.FindByRecordId("records/items/b.dbr")
-            ?? throw new InvalidOperationException();
+        var item = _item(database, "records/items/b.dbr");
 
-        var result = Assert.Single(new AcquisitionResolver(database.Acquisitions).Resolve([item]));
-        var craft = Assert.Single(result.Methods, method => method.Kind == "craft");
+        var methods = new AcquisitionResolver(database.Acquisitions).Resolve([item])[item.RecordId];
+        var craft = Assert.Single(methods, method => method.Kind == "craft");
 
-        Assert.Equal(["randomDrop", "craft"], result.Methods.Select(method => method.Kind));
+        Assert.Equal(["randomDrop", "craft"], methods.Select(method => method.Kind));
         Assert.Equal("craft", craft.Kind);
         Assert.Equal("records/items/blueprint.dbr", craft.Recipe?.RecordId);
         Assert.Equal(["vendor", "randomDrop"], craft.Sources?.Select(source => source.Kind));
@@ -189,26 +184,25 @@ public sealed class AcquisitionResolverTests
                 (1, 'lootName1'),
                 (2, 'lootName2'),
                 (3, 'lootHeadItem1');
-            INSERT INTO records(id, record_id, source_name, class, display_name) VALUES
-                (7, 'records/items/loottables/table.dbr', 'base', 'LootTable', 'Table'),
-                (8, 'records/creatures/monster.dbr', 'base', 'Monster', 'Monster');
+            INSERT INTO records(id, record_id, class, display_name) VALUES
+                (7, 'records/items/loottables/table.dbr', 'LootTable', 'Table'),
+                (8, 'records/creatures/monster.dbr', 'Monster', 'Monster');
             INSERT INTO record_references(source_pk, field_pk, ordinal, target_pk) VALUES
                 (7, 1, 0, 2),
                 (7, 2, 0, 2),
                 (8, 3, 0, 7);
             INSERT INTO acquisition_sources(item_pk, kind, source_pk)
             VALUES (2, 'specificMonster', 8);
-            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id, offset_x, offset_y, offset_z)
-            VALUES (1, 'base', 'world/test', '', 0, 0, 0);
+            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id)
+            VALUES (1, 'base', 'world/test', '');
             INSERT INTO placements(level_pk, entity_ordinal, record_pk, world_x, world_y, world_z)
             VALUES (1, 0, 8, 1, 2, 3);
             """);
         using var database = new CliDatabase(fixture.Path);
-        var item = database.Items.FindByRecordId("records/items/b.dbr")
-            ?? throw new InvalidOperationException();
+        var item = _item(database, "records/items/b.dbr");
 
-        var result = Assert.Single(new AcquisitionResolver(database.Acquisitions).Resolve([item]));
-        var routes = Assert.Single(result.Methods).Routes ?? [];
+        var methods = new AcquisitionResolver(database.Acquisitions).Resolve([item])[item.RecordId];
+        var routes = Assert.Single(methods).Routes ?? [];
 
         Assert.Equal(2, routes.Count);
         Assert.Equal(
@@ -222,20 +216,19 @@ public sealed class AcquisitionResolverTests
         using var fixture = new TestDatabase();
         fixture.Execute($"""
             INSERT INTO field_names(id, name) VALUES (1, 'lootItem1');
-            INSERT INTO records(id, record_id, source_name, class, display_name)
-            VALUES (7, 'records/creatures/monster.dbr', 'base', 'Monster', 'Monster');
+            INSERT INTO records(id, record_id, class, display_name)
+            VALUES (7, 'records/creatures/monster.dbr', 'Monster', 'Monster');
             INSERT INTO record_references(source_pk, field_pk, ordinal, target_pk) VALUES (7, 1, 0, 2);
             INSERT INTO acquisition_sources(item_pk, kind, source_pk) VALUES (2, 'specificMonster', 7);
-            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id, offset_x, offset_y, offset_z)
-            VALUES (1, 'base', 'world/test', '', 0, 0, 0);
+            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id)
+            VALUES (1, 'base', 'world/test', '');
             {_placements(513, false)}
             """);
         using var database = new CliDatabase(fixture.Path);
-        var item = database.Items.FindByRecordId("records/items/b.dbr")
-            ?? throw new InvalidOperationException();
+        var item = _item(database, "records/items/b.dbr");
 
-        var result = Assert.Single(new AcquisitionResolver(database.Acquisitions).Resolve([item]));
-        var method = Assert.Single(result.Methods);
+        var methods = new AcquisitionResolver(database.Acquisitions).Resolve([item])[item.RecordId];
+        var method = Assert.Single(methods);
 
         Assert.Single(method.Routes ?? []);
         Assert.False(method.RoutesTruncated);
@@ -247,20 +240,19 @@ public sealed class AcquisitionResolverTests
         using var fixture = new TestDatabase();
         fixture.Execute($"""
             INSERT INTO field_names(id, name) VALUES (1, 'lootItem1');
-            INSERT INTO records(id, record_id, source_name, class, display_name)
-            VALUES (7, 'records/creatures/monster.dbr', 'base', 'Monster', 'Monster');
+            INSERT INTO records(id, record_id, class, display_name)
+            VALUES (7, 'records/creatures/monster.dbr', 'Monster', 'Monster');
             INSERT INTO record_references(source_pk, field_pk, ordinal, target_pk) VALUES (7, 1, 0, 2);
             INSERT INTO acquisition_sources(item_pk, kind, source_pk) VALUES (2, 'specificMonster', 7);
-            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id, offset_x, offset_y, offset_z)
-            VALUES (1, 'base', 'world/test', '', 0, 0, 0);
+            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id)
+            VALUES (1, 'base', 'world/test', '');
             {_placements(513, true)}
             """);
         using var database = new CliDatabase(fixture.Path);
-        var item = database.Items.FindByRecordId("records/items/b.dbr")
-            ?? throw new InvalidOperationException();
+        var item = _item(database, "records/items/b.dbr");
 
-        var result = Assert.Single(new AcquisitionResolver(database.Acquisitions).Resolve([item]));
-        var method = Assert.Single(result.Methods);
+        var methods = new AcquisitionResolver(database.Acquisitions).Resolve([item])[item.RecordId];
+        var method = Assert.Single(methods);
 
         Assert.Equal(512, method.Routes?.Count);
         Assert.True(method.RoutesTruncated);
@@ -273,21 +265,20 @@ public sealed class AcquisitionResolverTests
     {
         using var fixture = new TestDatabase();
         var records = string.Join(',', Enumerable.Range(0, 9).Select(index =>
-            $"({7 + index}, 'records/items/loottables/{index}.dbr', 'base', 'LootTable', '')"));
+            $"({7 + index}, 'records/items/loottables/{index}.dbr', 'LootTable', '')"));
         var references = string.Join(',', Enumerable.Range(0, 9).Select(index =>
             $"({7 + index}, 1, 0, {(index == 0 ? 2 : 6 + index)})"));
         fixture.Execute($"""
             INSERT INTO field_names(id, name) VALUES (1, 'lootName1');
-            INSERT INTO records(id, record_id, source_name, class, display_name) VALUES {records};
+            INSERT INTO records(id, record_id, class, display_name) VALUES {records};
             INSERT INTO record_references(source_pk, field_pk, ordinal, target_pk) VALUES {references};
             INSERT INTO acquisition_sources(item_pk, kind, source_pk) VALUES (2, 'specificMonster', 7);
             """);
         using var database = new CliDatabase(fixture.Path);
-        var item = database.Items.FindByRecordId("records/items/b.dbr")
-            ?? throw new InvalidOperationException();
+        var item = _item(database, "records/items/b.dbr");
 
-        var result = Assert.Single(new AcquisitionResolver(database.Acquisitions).Resolve([item]));
-        var method = Assert.Single(result.Methods);
+        var methods = new AcquisitionResolver(database.Acquisitions).Resolve([item])[item.RecordId];
+        var method = Assert.Single(methods);
 
         Assert.Empty(method.Routes ?? []);
         Assert.True(method.RoutesTruncated);
@@ -298,5 +289,19 @@ public sealed class AcquisitionResolverTests
         var values = string.Join(',', Enumerable.Range(0, count).Select(index =>
             $"(1, {index}, 7, {(unique ? index : 1)}, 2, 3)"));
         return $"INSERT INTO placements(level_pk, entity_ordinal, record_pk, world_x, world_y, world_z) VALUES {values};";
+    }
+
+    private static ItemRecord _item(CliDatabase database, string recordId)
+    {
+        var filter = new ItemFilter(
+            null,
+            null,
+            null,
+            null,
+            null,
+            IncludeUnavailable: true,
+            Query: recordId,
+            ExactQuery: true);
+        return Assert.Single(database.Items.Load(filter, 0, 1));
     }
 }

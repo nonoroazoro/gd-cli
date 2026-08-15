@@ -18,21 +18,21 @@ public sealed class CommandCatalogTests
     }
 
     [Fact]
-    public void AffixCommandsExposeSeparateCompatibilityFilters()
+    public void RootCommandsExposeDistinctDomains()
     {
+        Assert.Equal(
+            ["affixes", "info", "init", "items", "quests", "schema", "tree"],
+            CommandCatalog.CommandNames.Order(StringComparer.Ordinal).ToArray());
+
+        var items = CommandCatalog.GetCommand(["items"]);
         var affixes = CommandCatalog.GetCommand(["affixes"]);
-        var ascended = CommandCatalog.GetCommand(["ascended-affixes"]);
-
+        Assert.Equal(["query (optional)"], items.Arguments);
+        Assert.Contains(
+            "--availability known|referenced|unresolved|unavailable|all",
+            items.Options);
+        Assert.Contains("--families", items.Options);
+        Assert.Contains("--family standard|ascended|all", affixes.Options);
         Assert.Contains("--type VALUE|all", affixes.Options);
-        Assert.DoesNotContain(affixes.Options, option => option.StartsWith("--category", StringComparison.Ordinal));
-        Assert.Contains("--category VALUE|all", ascended.Options);
-        Assert.DoesNotContain(ascended.Options, option => option.StartsWith("--type", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public void AcquisitionIsTheOnlyItemSourceCommand()
-    {
-        Assert.Contains("acquisition", CommandCatalog.CommandNames);
-        Assert.DoesNotContain("drops", CommandCatalog.CommandNames);
+        Assert.Contains("--category VALUE|all", affixes.Options);
     }
 }

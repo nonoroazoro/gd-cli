@@ -55,15 +55,15 @@ internal sealed class AcquisitionRepository
         return result;
     }
 
-    public Dictionary<string, List<AcquisitionItem>> LoadRecipes(IEnumerable<string> resultItemRecords)
+    public Dictionary<string, List<ItemSummary>> LoadRecipes(IEnumerable<string> resultItemRecords)
     {
-        var result = new Dictionary<string, List<AcquisitionItem>>(StringComparer.OrdinalIgnoreCase);
+        var result = new Dictionary<string, List<ItemSummary>>(StringComparer.OrdinalIgnoreCase);
         foreach (var chunk in resultItemRecords.Distinct(StringComparer.OrdinalIgnoreCase).Chunk(400))
         {
             using var command = _connection.CreateCommand();
             var parameters = SqliteQuery.AddValues(command, "item", chunk);
             command.CommandText = $"""
-                SELECT R.record_id, B.record_id, BI.name, B.name_tag, BI.rarity, BI.item_class
+                SELECT R.record_id, B.record_id, COALESCE(B.display_name, B.record_id), B.name_tag, BI.rarity, BI.item_class, BI.availability
                 FROM recipes P
                 JOIN records R ON R.id = P.result_item_pk
                 JOIN records B ON B.id = P.recipe_item_pk
@@ -80,13 +80,14 @@ internal sealed class AcquisitionRepository
                     recipes = [];
                     result[itemRecord] = recipes;
                 }
-                recipes.Add(new AcquisitionItem
+                recipes.Add(new ItemSummary
                 {
                     RecordId = reader.GetString(1),
                     Name = reader.GetString(2),
                     NameTag = reader.IsDBNull(3) ? null : reader.GetString(3),
                     Rarity = reader.GetString(4),
-                    ItemClass = reader.GetString(5)
+                    ItemClass = reader.GetString(5),
+                    Availability = reader.GetString(6)
                 });
             }
         }
@@ -101,7 +102,7 @@ internal sealed class AcquisitionRepository
             using var command = _connection.CreateCommand();
             var parameters = SqliteQuery.AddValues(command, "item", chunk);
             command.CommandText = $"""
-                SELECT R.record_id, S.record_id, S.display_name
+                SELECT R.record_id, S.record_id, COALESCE(S.display_name, S.record_id)
                 FROM acquisition_sources A
                 JOIN items I ON I.record_pk = A.item_pk AND I.is_mi = 1
                 JOIN records R ON R.id = I.record_pk
@@ -133,7 +134,7 @@ internal sealed class AcquisitionRepository
     {
         using var command = _connection.CreateCommand();
         command.CommandText = """
-            SELECT S.record_id, S.display_name, COALESCE(S.class, ''), N.name
+            SELECT S.record_id, COALESCE(S.display_name, S.record_id), COALESCE(S.class, ''), N.name
             FROM record_references RR
             JOIN records S ON S.id = RR.source_pk
             JOIN records T ON T.id = RR.target_pk

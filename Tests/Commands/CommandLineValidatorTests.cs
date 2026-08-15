@@ -5,18 +5,15 @@ namespace GdCli.Tests.Commands;
 public sealed class CommandLineValidatorTests
 {
     [Fact]
-    public void ValidateAllowsMiOnlyForItemsAndItemFamilies()
+    public void ValidateScopesItemFiltersToItems()
     {
         var items = CommandLineParser.Parse(["items", "--mi", "true"]);
-        var families = CommandLineParser.Parse(["item-families", "--mi", "false"]);
-
         CommandLineValidator.Validate(items);
-        CommandLineValidator.Validate(families);
 
         var affixes = CommandLineParser.Parse(["affixes", "--mi", "true"]);
         Assert.Throws<CommandLineException>(() => CommandLineValidator.Validate(affixes));
-        var invalidFamilyFilter = CommandLineParser.Parse(["item-families", "--rarity", "Rare"]);
-        Assert.Throws<CommandLineException>(() => CommandLineValidator.Validate(invalidFamilyFilter));
+        Assert.Throws<CommandLineException>(() => CommandLineValidator.Validate(
+            CommandLineParser.Parse(["items", "--families", "--rarity", "Rare"])));
     }
 
     [Fact]
@@ -24,7 +21,7 @@ public sealed class CommandLineValidatorTests
     {
         var affixes = CommandLineParser.Parse(["affixes", "--type", "WeaponMelee_Mace"]);
         var ascended = CommandLineParser.Parse(
-            ["ascended-affixes", "--category", "oneHandMelee"]);
+            ["affixes", "--family", "ascended", "--category", "oneHandMelee"]);
 
         CommandLineValidator.Validate(affixes);
         CommandLineValidator.Validate(ascended);
@@ -32,20 +29,24 @@ public sealed class CommandLineValidatorTests
         Assert.Throws<CommandLineException>(() => CommandLineValidator.Validate(
             CommandLineParser.Parse(["items", "--category", "armor"])));
         Assert.Throws<CommandLineException>(() => CommandLineValidator.Validate(
-            CommandLineParser.Parse(["ascended-affixes", "--type", "WeaponMelee_Mace"])));
+            CommandLineParser.Parse(["affixes", "--families"])));
         Assert.Throws<CommandLineException>(() => CommandLineValidator.Validate(
-            CommandLineParser.Parse(["ascended-affixes", "--rarity", "Rare"])));
+            CommandLineParser.Parse(
+                ["affixes", "--family", "standard", "--category", "oneHandMelee"])));
+        Assert.Throws<CommandLineException>(() => CommandLineValidator.Validate(
+            CommandLineParser.Parse(
+                ["affixes", "--family", "ascended", "--type", "WeaponMelee_Mace"])));
+        Assert.Throws<CommandLineException>(() => CommandLineValidator.Validate(
+            CommandLineParser.Parse(
+                ["affixes", "--kind", "prefix", "--category", "oneHandMelee"])));
     }
 
     [Fact]
-    public void ValidateAllowsOnlyPagingForAcquisition()
+    public void ValidateScopesAvailabilityToItemCatalogCommands()
     {
         CommandLineValidator.Validate(CommandLineParser.Parse(
-            ["acquisition", "item", "--offset", "10", "--limit", "5"]));
-
+            ["items", "--availability", "unresolved"]));
         Assert.Throws<CommandLineException>(() => CommandLineValidator.Validate(
-            CommandLineParser.Parse(["acquisition", "item", "--rarity", "Rare"])));
-        Assert.Throws<CommandLineException>(() => CommandLineValidator.Validate(
-            CommandLineParser.Parse(["acquisition", "item", "--no-stats"])));
+            CommandLineParser.Parse(["affixes", "--availability", "known"])));
     }
 }

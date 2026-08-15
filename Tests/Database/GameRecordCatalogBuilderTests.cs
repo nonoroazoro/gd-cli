@@ -23,9 +23,9 @@ public sealed class GameRecordCatalogBuilderTests
                         ELSE 'records/items/lootaffixes/suffix/b.dbr'
                     END
                 WHERE id IN (5, 6);
-                INSERT INTO records(id, record_id, source_name, class, display_name) VALUES
-                    (20, 'records/items/lootaffixes/prefix/table.dbr', 'base', 'LootRandomizerTable', 'table'),
-                    (21, 'records/items/lootaffixes/suffix/table.dbr', 'base', 'LootRandomizerTable', 'table');
+                INSERT INTO records(id, record_id, class, display_name) VALUES
+                    (20, 'records/items/lootaffixes/prefix/table.dbr', 'LootRandomizerTable', 'table'),
+                    (21, 'records/items/lootaffixes/suffix/table.dbr', 'LootRandomizerTable', 'table');
                 """;
             setup.ExecuteNonQuery();
             GameRecordCatalogBuilder.Build(connection, transaction);
@@ -33,7 +33,7 @@ public sealed class GameRecordCatalogBuilderTests
 
         using var database = new CliDatabase(fixture.Path);
         var affixes = database.Affixes.Load(
-            new AffixFilter(null, null, null, null, null),
+            new AffixFilter(null, null, null, null, null, null, null),
             0,
             null);
 

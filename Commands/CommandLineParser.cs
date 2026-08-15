@@ -73,6 +73,10 @@ internal static class CommandLineParser
                     options.Kind = _normalizeAll(_next(args, ref index, value));
                     options.KindSpecified = true;
                     break;
+                case "--family":
+                    options.AffixFamily = _normalizeAll(_next(args, ref index, value));
+                    options.AffixFamilySpecified = true;
+                    break;
                 case "--category":
                     options.AscendedCategory = _normalizeAll(_next(args, ref index, value));
                     options.AscendedCategorySpecified = true;
@@ -80,6 +84,10 @@ internal static class CommandLineParser
                 case "--mi":
                     options.IsMi = _parseBoolean(_next(args, ref index, value), value);
                     options.MiSpecified = true;
+                    break;
+                case "--availability":
+                    options.Availability = _normalizeAll(_next(args, ref index, value));
+                    options.AvailabilitySpecified = true;
                     break;
                 case "--min-level":
                     options.MinimumLevel = _parseNonNegative(_next(args, ref index, value), value);
@@ -104,6 +112,9 @@ internal static class CommandLineParser
                 case "--no-stats":
                     options.NoStats = true;
                     break;
+                case "--families":
+                    options.GroupFamilies = true;
+                    break;
                 default:
                     throw new CommandLineException($"Unknown option: {value}");
             }
@@ -121,18 +132,24 @@ internal static class CommandLineParser
             throw new CommandLineException("--type requires a non-empty value.");
         if (options.KindSpecified && options.Kind != null && string.IsNullOrWhiteSpace(options.Kind))
             throw new CommandLineException("--kind requires a non-empty value.");
+        if (options.AffixFamilySpecified &&
+            options.AffixFamily != null &&
+            string.IsNullOrWhiteSpace(options.AffixFamily))
+            throw new CommandLineException("--family requires a non-empty value.");
         if (options.AscendedCategorySpecified &&
             options.AscendedCategory != null &&
             string.IsNullOrWhiteSpace(options.AscendedCategory))
             throw new CommandLineException("--category requires a non-empty value.");
+        if (options.AvailabilitySpecified &&
+            options.Availability != null &&
+            string.IsNullOrWhiteSpace(options.Availability))
+            throw new CommandLineException("--availability requires a non-empty value.");
         options.CommandPath = commandPath;
         if (options.HelpRequested)
             return options;
         if (commandPath.Count == 0)
             throw new CommandLineException("A command is required. Use --help to list commands.");
         _applyPositionals(options, positionals);
-        if (options.Command == "search" && string.IsNullOrWhiteSpace(options.SearchQuery))
-            throw new CommandLineException("search requires a non-empty query.");
         return options;
     }
 
@@ -140,32 +157,19 @@ internal static class CommandLineParser
     {
         switch (options.Command)
         {
-            case "item":
-            case "affix":
-            case "ascended-affix":
-                if (positionals.Count != 1)
-                    throw new CommandLineException($"{options.Command} requires exactly one record ID.");
-                options.RecordId = positionals[0];
-                break;
-            case "search":
-                if (positionals.Count == 0)
-                    throw new CommandLineException("search requires a query.");
-                options.SearchQuery = string.Join(' ', positionals);
-                break;
             case "init":
                 if (positionals.Count != 1)
                     throw new CommandLineException("init requires exactly one Grim Dawn game directory.");
                 options.GameDirectory = positionals[0];
                 break;
-            case "acquisition":
-                if (positionals.Count == 0)
-                    throw new CommandLineException("acquisition requires an item name or record ID.");
-                options.AcquisitionQuery = string.Join(' ', positionals);
+            case "items":
+                options.ItemQuery = positionals.Count == 0 ? null : string.Join(' ', positionals);
                 break;
-            case "quest":
-                if (positionals.Count == 0)
-                    throw new CommandLineException("quest requires a quest name or path.");
-                options.QuestQuery = string.Join(' ', positionals);
+            case "affixes":
+                options.AffixQuery = positionals.Count == 0 ? null : string.Join(' ', positionals);
+                break;
+            case "quests":
+                options.QuestQuery = positionals.Count == 0 ? null : string.Join(' ', positionals);
                 break;
             default:
                 if (positionals.Count > 0)

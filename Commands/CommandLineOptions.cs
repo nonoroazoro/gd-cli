@@ -24,6 +24,10 @@ internal sealed class CommandLineOptions
 
     public bool KindSpecified { get; set; }
 
+    public string? AffixFamily { get; set; }
+
+    public bool AffixFamilySpecified { get; set; }
+
     public string? AscendedCategory { get; set; }
 
     public bool AscendedCategorySpecified { get; set; }
@@ -31,6 +35,10 @@ internal sealed class CommandLineOptions
     public bool? IsMi { get; set; }
 
     public bool MiSpecified { get; set; }
+
+    public string? Availability { get; set; }
+
+    public bool AvailabilitySpecified { get; set; }
 
     public int? MinimumLevel { get; set; }
 
@@ -44,9 +52,9 @@ internal sealed class CommandLineOptions
 
     public bool LimitSpecified { get; set; }
 
-    public string? RecordId { get; set; }
+    public string? ItemQuery { get; set; }
 
-    public string? SearchQuery { get; set; }
+    public string? AffixQuery { get; set; }
 
     public string? GameDirectory { get; set; }
 
@@ -54,9 +62,9 @@ internal sealed class CommandLineOptions
 
     public bool GameLanguageSpecified { get; set; }
 
-    public string? AcquisitionQuery { get; set; }
-
     public string? QuestQuery { get; set; }
+
+    public bool GroupFamilies { get; set; }
 
     public bool NoStats { get; set; }
 }
