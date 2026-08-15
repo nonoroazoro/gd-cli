@@ -316,6 +316,8 @@ internal static class DatabaseInitializer
                OR R.id IN (SELECT record_pk FROM quest_entities)
                OR R.id IN (SELECT placed_pk FROM entity_aliases)
                OR R.id IN (SELECT record_pk FROM items)
+               OR R.class = 'FixedItemContainer'
+               OR R.template LIKE '%/fixeditemcontainer.tpl'
                OR ((R.record_id LIKE 'records/proxies/%' OR R.record_id LIKE 'records/creatures/%')
                     AND EXISTS (SELECT 1 FROM record_references RR WHERE RR.source_pk = R.id))
             """);
@@ -440,11 +442,15 @@ internal static class DatabaseInitializer
     {
         if (textValue != null && textValue.EndsWith(".dbr", StringComparison.OrdinalIgnoreCase))
             return false;
-        if (recordId.StartsWith("records/items/loottables/", StringComparison.OrdinalIgnoreCase))
+        if (field.StartsWith("lootWeight", StringComparison.OrdinalIgnoreCase) ||
+            field.StartsWith("lootChance", StringComparison.OrdinalIgnoreCase) ||
+            field.StartsWith("loot", StringComparison.OrdinalIgnoreCase) &&
+            field.EndsWith("Chance", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (recordId.Contains("/loottables/", StringComparison.OrdinalIgnoreCase) ||
+            recordId.Contains("/lootchests/", StringComparison.OrdinalIgnoreCase))
         {
-            return field.StartsWith("lootWeight", StringComparison.OrdinalIgnoreCase) ||
-                   field.StartsWith("lootChance", StringComparison.OrdinalIgnoreCase) ||
-                   field.Equals("forceHighestLevel", StringComparison.OrdinalIgnoreCase) ||
+            return field.Equals("forceHighestLevel", StringComparison.OrdinalIgnoreCase) ||
                    field.Equals("minItemLevelEquation", StringComparison.OrdinalIgnoreCase) ||
                    field.Equals("maxItemLevelEquation", StringComparison.OrdinalIgnoreCase);
         }

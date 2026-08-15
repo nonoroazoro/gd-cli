@@ -9,6 +9,25 @@ internal static class ItemAvailabilityBuilder
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
+            CREATE TEMP TABLE container_items (
+                item_pk INTEGER PRIMARY KEY
+            ) WITHOUT ROWID;
+
+            WITH RECURSIVE ContainerRoutes(record_pk) AS (
+                SELECT id
+                FROM records
+                WHERE class = 'FixedItemContainer'
+                   OR template LIKE '%/fixeditemcontainer.tpl'
+                UNION
+                SELECT E.target_pk
+                FROM ContainerRoutes G
+                JOIN specific_container_edges E ON E.source_pk = G.record_pk
+            )
+            INSERT INTO container_items(item_pk)
+            SELECT DISTINCT R.record_pk
+            FROM ContainerRoutes G
+            JOIN items R ON R.record_pk = G.record_pk;
+
             UPDATE items
             SET availability = CASE
                 WHEN EXISTS (
@@ -19,6 +38,10 @@ internal static class ItemAvailabilityBuilder
                     SELECT 1
                     FROM recipes R
                     WHERE R.result_item_pk = items.record_pk
+                ) OR EXISTS (
+                    SELECT 1
+                    FROM container_items C
+                    WHERE C.item_pk = items.record_pk
                 ) THEN 'known'
                 WHEN EXISTS (
                     SELECT 1
@@ -102,6 +125,8 @@ internal static class ItemAvailabilityBuilder
                 ) THEN 'unresolved'
                 ELSE 'unavailable'
             END;
+
+            DROP TABLE container_items;
             """;
         command.ExecuteNonQuery();
     }

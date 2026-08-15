@@ -22,6 +22,7 @@ internal static class DatabaseSchema
         "ascended_affix_categories",
         "item_variants",
         "record_skill_modifiers",
+        "random_drop_nodes",
         "acquisition_sources",
         "recipes",
         "levels",
@@ -34,6 +35,11 @@ internal static class DatabaseSchema
         "quest_entities",
         "entity_aliases",
         "quest_unresolved_references"
+    ]);
+
+    public static IReadOnlyList<string> RequiredViews { get; } = Array.AsReadOnly<string>(
+    [
+        "specific_container_edges"
     ]);
 
     public static readonly string CreateSql = $$"""
@@ -189,6 +195,33 @@ internal static class DatabaseSchema
             FOREIGN KEY (modifier_pk) REFERENCES records(id),
             FOREIGN KEY (skill_pk) REFERENCES records(id)
         ) WITHOUT ROWID;
+
+        CREATE TABLE random_drop_nodes (
+            record_pk INTEGER PRIMARY KEY,
+            FOREIGN KEY (record_pk) REFERENCES records(id) ON DELETE CASCADE
+        );
+
+        CREATE VIEW specific_container_edges AS
+        SELECT RR.source_pk, RR.target_pk, RR.field_pk, RR.ordinal
+        FROM record_references RR
+        JOIN records S ON S.id = RR.source_pk
+        JOIN field_names N ON N.id = RR.field_pk
+        WHERE (S.template LIKE '%loot%.tpl'
+               OR S.class = 'FixedItemContainer'
+               OR S.record_id LIKE '%/loottables/%')
+          AND (N.name LIKE 'lootName%'
+               OR N.name LIKE 'loot%Name%'
+               OR N.name IN ('records', 'lootTable'))
+          AND NOT EXISTS (
+              SELECT 1
+              FROM random_drop_nodes D
+              WHERE D.record_pk = RR.target_pk
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM items I
+                    WHERE I.record_pk = RR.target_pk
+                )
+          );
 
         CREATE TABLE acquisition_sources (
             item_pk INTEGER NOT NULL,

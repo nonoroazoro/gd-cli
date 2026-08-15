@@ -13,7 +13,7 @@ internal sealed class AcquisitionMethod
     public IReadOnlyList<AcquisitionMethod>? Sources { get; init; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public IReadOnlyList<AcquisitionActor>? Actors { get; init; }
+    public IReadOnlyList<AcquisitionEntity>? Entities { get; init; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<AcquisitionRoute>? Routes { get; init; }

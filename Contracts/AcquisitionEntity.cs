@@ -1,6 +1,6 @@
 namespace GdCli.Contracts;
 
-internal sealed class AcquisitionActor
+internal sealed class AcquisitionEntity
 {
     public required IReadOnlyList<string> RecordIds { get; init; }
 

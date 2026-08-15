@@ -1,6 +1,6 @@
 # Core Design
 
-- Treat `item` as the primary RPG domain. Item queries aggregate identity, set relations, variants, availability, acquisition, actors, routes, and coordinates.
+- Treat `item` as the primary RPG domain. Item queries aggregate identity, set relations, variants, availability, acquisition, source entities, routes, and coordinates.
 - Keep root query domains non-overlapping: `items`, `affixes`, and `quests`. Do not add separate commands for data already owned by one domain.
 - Keep the SQLite model normalized and independent from command shape. Store stable entities and relations once; compose agent-facing JSON in the application layer.
 - Optimize filters and joins in SQLite. Avoid loading a full catalog for application-side filtering.

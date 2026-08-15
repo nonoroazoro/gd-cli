@@ -20,7 +20,7 @@ public sealed class AcquisitionResolverTests
     }
 
     [Fact]
-    public void ResolveGroupsActorVariantsAndResolvesProxyLocation()
+    public void ResolveGroupsEntityVariantsAndResolvesProxyLocation()
     {
         using var fixture = new TestDatabase();
         fixture.Execute("""
@@ -48,7 +48,7 @@ public sealed class AcquisitionResolverTests
 
         var methods = new AcquisitionResolver(database.Acquisitions).Resolve([item])[item.RecordId];
         var method = Assert.Single(methods);
-        var actor = Assert.Single(method.Actors ?? []);
+        var actor = Assert.Single(method.Entities ?? []);
         var route = Assert.Single(method.Routes ?? []);
 
         Assert.Equal(2, actor.RecordIds.Count);
@@ -59,7 +59,7 @@ public sealed class AcquisitionResolverTests
     }
 
     [Fact]
-    public void ResolveKeepsActorsWithoutStableTagsSeparate()
+    public void ResolveKeepsEntitiesWithoutStableTagsSeparate()
     {
         using var fixture = new TestDatabase();
         fixture.Execute("""
@@ -78,7 +78,7 @@ public sealed class AcquisitionResolverTests
         var item = _item(database, "records/items/b.dbr");
 
         var methods = new AcquisitionResolver(database.Acquisitions).Resolve([item])[item.RecordId];
-        var actors = Assert.Single(methods).Actors ?? [];
+        var actors = Assert.Single(methods).Entities ?? [];
 
         Assert.Equal(4, actors.Count);
         Assert.All(actors, actor => Assert.Single(actor.RecordIds));
@@ -110,7 +110,7 @@ public sealed class AcquisitionResolverTests
 
         var methods = new AcquisitionResolver(database.Acquisitions).Resolve([item])[item.RecordId];
         var method = Assert.Single(methods);
-        var actor = Assert.Single(method.Actors ?? []);
+        var actor = Assert.Single(method.Entities ?? []);
 
         Assert.Equal("vendor", method.Kind);
         Assert.Equal("records/creatures/npcs/merchant.dbr", Assert.Single(actor.RecordIds));
@@ -136,7 +136,7 @@ public sealed class AcquisitionResolverTests
         Assert.Equal("specificMonster", method.Kind);
         Assert.Equal(
             "records/creatures/monster.dbr",
-            Assert.Single(Assert.Single(method.Actors ?? []).RecordIds));
+            Assert.Single(Assert.Single(method.Entities ?? []).RecordIds));
         Assert.Empty(method.Routes ?? []);
         Assert.False(method.RoutesTruncated);
     }
@@ -172,7 +172,7 @@ public sealed class AcquisitionResolverTests
         Assert.Equal("records/items/blueprint.dbr", craft.Recipe?.RecordId);
         Assert.Equal(["vendor", "randomDrop"], craft.Sources?.Select(source => source.Kind));
         var vendor = craft.Sources?[0] ?? throw new InvalidOperationException();
-        Assert.Equal("world/vendor", Assert.Single(Assert.Single(vendor.Actors ?? []).Locations).Level);
+        Assert.Equal("world/vendor", Assert.Single(Assert.Single(vendor.Entities ?? []).Locations).Level);
     }
 
     [Fact]

@@ -17,8 +17,9 @@ internal sealed class LootRouteResolver
         _repository = repository;
     }
 
-    public LootRouteResult Resolve(string itemRecordId)
+    public LootRouteResult Resolve(string itemRecordId, IEnumerable<string> sourceRecordIds)
     {
+        var sourceRecords = sourceRecordIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var routes = new List<AcquisitionRoute>();
         var routeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var queue = new Queue<LootSearchState>();
@@ -56,6 +57,8 @@ internal sealed class LootRouteResolver
                 }).ToList();
                 foreach (var location in _loadLocations(reference.SourceRecordId))
                 {
+                    if (!path.Any(step => sourceRecords.Contains(step.RecordId)))
+                        continue;
                     var route = new AcquisitionRoute { Path = path, Location = location };
                     if (!routeKeys.Add(_routeKey(route)))
                         continue;

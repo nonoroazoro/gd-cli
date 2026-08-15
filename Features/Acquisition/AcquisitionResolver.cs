@@ -33,7 +33,7 @@ internal sealed class AcquisitionResolver
             StringComparer.OrdinalIgnoreCase);
     }
 
-    private AcquisitionActor _actor(IGrouping<string, AcquisitionSourceRecord> sources)
+    private AcquisitionEntity _entity(IGrouping<string, AcquisitionSourceRecord> sources)
     {
         var records = sources
             .Select(source => source.RecordId ?? string.Empty)
@@ -46,10 +46,10 @@ internal sealed class AcquisitionResolver
             .GroupBy(_locationKey, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .ToList();
-        return new AcquisitionActor
+        return new AcquisitionEntity
         {
             RecordIds = records,
-            Name = _actorName(sources.First(), records),
+            Name = _entityName(sources.First(), records),
             Locations = locations
         };
     }
@@ -59,24 +59,43 @@ internal sealed class AcquisitionResolver
         IReadOnlyList<AcquisitionSourceRecord> sources)
     {
         var methods = new List<AcquisitionMethod>();
-        var vendors = _actors(sources, AcquisitionKind.Vendor);
+        var vendors = _entities(sources, AcquisitionKind.Vendor);
         if (vendors.Count > 0)
         {
             methods.Add(new AcquisitionMethod
             {
                 Kind = AcquisitionKind.Vendor,
-                Actors = vendors
+                Entities = vendors
             });
         }
 
-        var monsters = _actors(sources, AcquisitionKind.SpecificMonster);
+        var monsters = _entities(sources, AcquisitionKind.SpecificMonster);
         if (monsters.Count > 0)
         {
-            var routeResult = _routeResolver.Resolve(itemRecordId);
+            var routeResult = _routeResolver.Resolve(
+                itemRecordId,
+                monsters.SelectMany(monster => monster.RecordIds));
             methods.Add(new AcquisitionMethod
             {
                 Kind = AcquisitionKind.SpecificMonster,
-                Actors = monsters,
+                Entities = monsters,
+                Routes = routeResult.Routes,
+                RoutesTruncated = routeResult.RoutesTruncated,
+                RouteLimit = routeResult.RouteLimit,
+                MaximumDepth = routeResult.MaximumDepth
+            });
+        }
+
+        var containers = _entities(sources, AcquisitionKind.Container);
+        if (containers.Count > 0)
+        {
+            var routeResult = _routeResolver.Resolve(
+                itemRecordId,
+                containers.SelectMany(container => container.RecordIds));
+            methods.Add(new AcquisitionMethod
+            {
+                Kind = AcquisitionKind.Container,
+                Entities = containers,
                 Routes = routeResult.Routes,
                 RoutesTruncated = routeResult.RoutesTruncated,
                 RouteLimit = routeResult.RouteLimit,
@@ -89,15 +108,15 @@ internal sealed class AcquisitionResolver
         return methods;
     }
 
-    private List<AcquisitionActor> _actors(
+    private List<AcquisitionEntity> _entities(
         IReadOnlyList<AcquisitionSourceRecord> sources,
         string kind)
     {
         return sources
             .Where(source => source.Kind == kind && source.RecordId != null)
-            .GroupBy(_actorKey, StringComparer.OrdinalIgnoreCase)
-            .Select(_actor)
-            .OrderBy(actor => actor.Name, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(_entityKey, StringComparer.OrdinalIgnoreCase)
+            .Select(_entity)
+            .OrderBy(entity => entity.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
@@ -105,7 +124,7 @@ internal sealed class AcquisitionResolver
     {
         if (!_locationCache.TryGetValue(recordId, out var locations))
         {
-            locations = _repository.LoadActorLocations(recordId);
+            locations = _repository.LoadEntityLocations(recordId);
             _locationCache[recordId] = locations;
         }
         return locations;
@@ -117,14 +136,14 @@ internal sealed class AcquisitionResolver
                $"{location.X:R}|{location.Y:R}|{location.Z:R}";
     }
 
-    private static string _actorKey(AcquisitionSourceRecord source)
+    private static string _entityKey(AcquisitionSourceRecord source)
     {
         if (!string.IsNullOrWhiteSpace(source.NameTag))
             return $"tag:{source.NameTag}";
         return $"record:{source.RecordId}";
     }
 
-    private static string _actorName(
+    private static string _entityName(
         AcquisitionSourceRecord source,
         List<string> recordIds)
     {

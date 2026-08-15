@@ -9,6 +9,108 @@ namespace GdCli.Tests.Database;
 public sealed class AcquisitionCatalogBuilderTests
 {
     [Fact]
+    public void BuildDerivesFixedContainerRoutesAndLootChance()
+    {
+        using var fixture = new TestDatabase();
+        fixture.Execute("""
+            INSERT INTO field_names(id, name) VALUES
+                (20, 'loot5Name1'),
+                (21, 'lootTable'),
+                (22, 'loot5Chance'),
+                (23, 'lootName1');
+            INSERT INTO records(id, record_id, class, template, display_name) VALUES
+                (20, 'records/items/lootchests/chestloottables/specific.dbr', 'FixedItemLoot', 'database/templates/fixeditemloot.tpl', NULL),
+                (21, 'records/items/lootchests/specific.dbr', 'FixedItemContainer', 'database/templates/fixeditemcontainer.tpl', 'Specific Chest'),
+                (22, 'records/items/loottables/mastertables/specific.dbr', 'LootMasterTable', 'database/templates/lootmastertable.tpl', NULL);
+            INSERT INTO record_references(source_pk, field_pk, ordinal, target_pk) VALUES
+                (20, 20, 4, 22),
+                (22, 23, 0, 2),
+                (21, 21, 0, 20);
+            INSERT INTO loot_conditions(record_pk, field_pk, ordinal, numeric_value)
+            VALUES (20, 22, 4, 100);
+            INSERT INTO levels(id, source_name, level_path, rift_gate_record_id)
+            VALUES (1, 'base', 'world/chest', 'records/rift.dbr');
+            INSERT INTO placements(level_pk, entity_ordinal, record_pk, world_x, world_y, world_z)
+            VALUES (1, 0, 21, 1, 2, 3);
+            """);
+
+        fixture.Execute(AcquisitionCatalogBuilder.Build);
+        fixture.Execute(AcquisitionGraphPruner.Prune);
+
+        using var database = new CliDatabase(fixture.Path);
+        var item = _item(database, "records/items/b.dbr");
+        var methods = new AcquisitionResolver(database.Acquisitions).Resolve([item])[item.RecordId];
+        var container = Assert.Single(methods, method => method.Kind == "container");
+        Assert.DoesNotContain(methods, method => method.Kind == "randomDrop");
+        Assert.Equal("Specific Chest", Assert.Single(container.Entities ?? []).Name);
+        var route = Assert.Single(container.Routes ?? []);
+        Assert.Equal(
+            [
+                "records/items/loottables/mastertables/specific.dbr",
+                "records/items/lootchests/chestloottables/specific.dbr",
+                "records/items/lootchests/specific.dbr"
+            ],
+            route.Path.Select(step => step.RecordId));
+        Assert.Equal(100, Assert.Single(route.Path[1].Conditions).Value);
+    }
+
+    [Fact]
+    public void BuildDoesNotExposeGenericRandomChestsAsSpecificContainers()
+    {
+        using var fixture = new TestDatabase();
+        fixture.Execute("""
+            INSERT INTO field_names(id, name) VALUES
+                (20, 'lootName1'),
+                (21, 'lootTable');
+            INSERT INTO records(id, record_id, class, template, display_name) VALUES
+                (20, 'records/items/loottables/mastertables/random.dbr', 'LootMasterTable', 'database/templates/lootmastertable.tpl', NULL),
+                (21, 'records/items/lootchests/random.dbr', 'FixedItemContainer', 'database/templates/fixeditemcontainer.tpl', 'Random Chest');
+            INSERT INTO record_references(source_pk, field_pk, ordinal, target_pk) VALUES
+                (20, 20, 0, 2),
+                (21, 21, 0, 20);
+            """);
+
+        fixture.Execute(AcquisitionCatalogBuilder.Build);
+        fixture.Execute(AcquisitionGraphPruner.Prune);
+
+        using var database = new CliDatabase(fixture.Path);
+        var item = _item(database, "records/items/b.dbr");
+        var methods = new AcquisitionResolver(database.Acquisitions).Resolve([item])[item.RecordId];
+
+        Assert.Equal(["randomDrop"], methods.Select(method => method.Kind));
+    }
+
+    [Fact]
+    public void BuildPreservesAContainerSpecificBranchForARandomDropItem()
+    {
+        using var fixture = new TestDatabase();
+        fixture.Execute("""
+            INSERT INTO field_names(id, name) VALUES
+                (20, 'lootName1'),
+                (21, 'lootTable');
+            INSERT INTO records(id, record_id, class, template, display_name) VALUES
+                (20, 'records/items/loottables/mastertables/random.dbr', 'LootMasterTable', 'database/templates/lootmastertable.tpl', NULL),
+                (21, 'records/items/lootchests/specific-table.dbr', 'FixedItemLoot', 'database/templates/fixeditemloot.tpl', NULL),
+                (22, 'records/items/lootchests/specific.dbr', 'FixedItemContainer', 'database/templates/fixeditemcontainer.tpl', 'Specific Chest');
+            INSERT INTO record_references(source_pk, field_pk, ordinal, target_pk) VALUES
+                (20, 20, 0, 2),
+                (21, 20, 0, 2),
+                (22, 21, 0, 21);
+            """);
+
+        fixture.Execute(AcquisitionCatalogBuilder.Build);
+        fixture.Execute(AcquisitionGraphPruner.Prune);
+
+        using var database = new CliDatabase(fixture.Path);
+        var item = _item(database, "records/items/b.dbr");
+        var methods = new AcquisitionResolver(database.Acquisitions).Resolve([item])[item.RecordId];
+
+        Assert.Equal(["container", "randomDrop"], methods.Select(method => method.Kind).Order());
+        Assert.Equal("Specific Chest", Assert.Single(
+            Assert.Single(methods, method => method.Kind == "container").Entities ?? []).Name);
+    }
+
+    [Fact]
     public void BuildPreservesMiTraversalSemantics()
     {
         using var fixture = new TestDatabase();
@@ -186,7 +288,7 @@ public sealed class AcquisitionCatalogBuilderTests
         var vendor = Assert.Single(methods, method => method.Kind == "vendor");
         var monster = Assert.Single(methods, method => method.Kind == "specificMonster");
 
-        Assert.Equal("world/vendor", Assert.Single(Assert.Single(vendor.Actors ?? []).Locations).Level);
+        Assert.Equal("world/vendor", Assert.Single(Assert.Single(vendor.Entities ?? []).Locations).Level);
         Assert.Equal(
             [
                 "records/items/loottables/specific.dbr",

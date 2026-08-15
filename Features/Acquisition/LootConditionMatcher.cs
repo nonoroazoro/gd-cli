@@ -13,6 +13,17 @@ internal static class LootConditionMatcher
             return conditionField.Equals($"lootWeight{suffix}", StringComparison.OrdinalIgnoreCase) ||
                    conditionField.Equals($"lootChance{suffix}", StringComparison.OrdinalIgnoreCase);
         }
+        if (referenceField.StartsWith("loot", StringComparison.OrdinalIgnoreCase))
+        {
+            var nameIndex = referenceField.IndexOf("Name", StringComparison.OrdinalIgnoreCase);
+            if (nameIndex > "loot".Length)
+            {
+                var group = referenceField["loot".Length..nameIndex];
+                var choice = referenceField[(nameIndex + "Name".Length)..];
+                return conditionField.Equals($"loot{group}Chance", StringComparison.OrdinalIgnoreCase) ||
+                       conditionField.Equals($"loot{group}Weight{choice}", StringComparison.OrdinalIgnoreCase);
+            }
+        }
 
         if (referenceField.StartsWith("name", StringComparison.OrdinalIgnoreCase))
         {

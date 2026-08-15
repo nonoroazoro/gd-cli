@@ -5,6 +5,40 @@ namespace GdCli.Tests.Database;
 public sealed class ItemAvailabilityBuilderTests
 {
     [Fact]
+    public void BuildTreatsContainerReachabilityAsKnown()
+    {
+        using var fixture = new TestDatabase();
+        fixture.Execute("""
+            INSERT INTO records(id, record_id, class, template, display_name) VALUES
+                (20, 'records/items/lootchests/chest.dbr', 'FixedItemContainer', 'database/templates/fixeditemcontainer.tpl', 'Chest'),
+                (21, 'records/items/lootchests/table.dbr', 'FixedItemLoot', 'database/templates/fixeditemloot.tpl', NULL);
+            INSERT INTO field_names(id, name) VALUES
+                (20, 'lootTable'),
+                (21, 'loot1Name1');
+            INSERT INTO record_references(source_pk, field_pk, ordinal, target_pk) VALUES
+                (20, 20, 0, 21),
+                (21, 21, 0, 2);
+            """);
+
+        fixture.Execute(ItemAvailabilityBuilder.Build);
+
+        using var database = new CliDatabase(fixture.Path);
+        var item = Assert.Single(database.Items.Load(
+            new ItemFilter(
+                null,
+                null,
+                null,
+                null,
+                null,
+                IncludeUnavailable: true,
+                Query: "Beta",
+                ExactQuery: true),
+            0,
+            1));
+        Assert.Equal("known", item.Availability);
+    }
+
+    [Fact]
     public void BuildSeparatesKnownReferencedUnresolvedAndUnavailableItems()
     {
         using var fixture = new TestDatabase();

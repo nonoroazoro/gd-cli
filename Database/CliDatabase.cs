@@ -213,12 +213,21 @@ internal sealed class CliDatabase : IDisposable
         if (version != DatabaseSchema.Version)
             throw new IncompatibleDatabaseException($"CLI database schema {version} is incompatible with required schema {DatabaseSchema.Version}. Run init again.");
         foreach (var table in DatabaseSchema.RequiredTables)
+            _validateSchemaObject("table", table);
+        foreach (var view in DatabaseSchema.RequiredViews)
+            _validateSchemaObject("view", view);
+    }
+
+    private void _validateSchemaObject(string type, string name)
+    {
+        using var command = _connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = @type AND name = @name";
+        command.Parameters.AddWithValue("@type", type);
+        command.Parameters.AddWithValue("@name", name);
+        if (Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture) != 1)
         {
-            using var command = _connection.CreateCommand();
-            command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = @name";
-            command.Parameters.AddWithValue("@name", table);
-            if (Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture) != 1)
-                throw new IncompatibleDatabaseException($"Required table is missing: {table}");
+            throw new IncompatibleDatabaseException(
+                $"Required database {type} is missing: {name}");
         }
     }
 

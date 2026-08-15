@@ -15,7 +15,8 @@ internal sealed class AcquisitionRepository
     public Dictionary<string, List<AcquisitionSourceRecord>> LoadSources(IEnumerable<string> itemRecords)
     {
         var result = new Dictionary<string, List<AcquisitionSourceRecord>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var chunk in itemRecords.Distinct(StringComparer.OrdinalIgnoreCase).Chunk(400))
+        var records = itemRecords.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        foreach (var chunk in records.Chunk(400))
         {
             using var command = _connection.CreateCommand();
             var parameters = SqliteQuery.AddValues(command, "item", chunk);
@@ -52,7 +53,59 @@ internal sealed class AcquisitionRepository
                 });
             }
         }
+        _loadContainerSources(records, result);
         return result;
+    }
+
+    private void _loadContainerSources(
+        IReadOnlyList<string> itemRecords,
+        Dictionary<string, List<AcquisitionSourceRecord>> result)
+    {
+        foreach (var chunk in itemRecords.Chunk(100))
+        {
+            using var command = _connection.CreateCommand();
+            var parameters = SqliteQuery.AddValues(command, "item", chunk);
+            command.CommandText = $"""
+                WITH RECURSIVE ContainerRoutes(item_pk, record_pk) AS (
+                    SELECT id, id
+                    FROM records
+                    WHERE record_id IN ({parameters})
+                    UNION
+                    SELECT G.item_pk, E.source_pk
+                    FROM ContainerRoutes G
+                    JOIN specific_container_edges E ON E.target_pk = G.record_pk
+                    WHERE NOT EXISTS (
+                        SELECT 1
+                        FROM random_drop_nodes D
+                        WHERE D.record_pk = E.source_pk
+                    )
+                )
+                SELECT I.record_id, S.record_id, S.display_name, S.name_tag
+                FROM ContainerRoutes G
+                JOIN records I ON I.id = G.item_pk
+                JOIN records S ON S.id = G.record_pk
+                WHERE S.class = 'FixedItemContainer'
+                   OR S.template LIKE '%/fixeditemcontainer.tpl'
+                ORDER BY I.record_id, S.display_name COLLATE NOCASE, S.record_id
+                """;
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var itemRecord = reader.GetString(0);
+                if (!result.TryGetValue(itemRecord, out var sources))
+                {
+                    sources = [];
+                    result[itemRecord] = sources;
+                }
+                sources.Add(new AcquisitionSourceRecord
+                {
+                    Kind = GdCli.Features.Acquisition.AcquisitionKind.Container,
+                    RecordId = reader.GetString(1),
+                    Name = reader.IsDBNull(2) ? null : reader.GetString(2),
+                    NameTag = reader.IsDBNull(3) ? null : reader.GetString(3)
+                });
+            }
+        }
     }
 
     public Dictionary<string, List<ItemSummary>> LoadRecipes(IEnumerable<string> resultItemRecords)
@@ -140,7 +193,9 @@ internal sealed class AcquisitionRepository
             JOIN records T ON T.id = RR.target_pk
             JOIN field_names N ON N.id = RR.field_pk
             WHERE T.record_id = @target
-              AND (S.record_id LIKE 'records/items/loottables/%'
+              AND (S.template LIKE '%loot%.tpl'
+                   OR S.class = 'FixedItemContainer'
+                   OR S.record_id LIKE '%/loottables/%'
                    OR S.record_id LIKE 'records/creatures/%'
                    OR S.record_id LIKE 'records/proxies/%')
             ORDER BY S.record_id, N.name, RR.ordinal
@@ -218,7 +273,7 @@ internal sealed class AcquisitionRepository
         return result;
     }
 
-    public IReadOnlyList<AcquisitionLocation> LoadActorLocations(string recordId)
+    public IReadOnlyList<AcquisitionLocation> LoadEntityLocations(string recordId)
     {
         using var command = _connection.CreateCommand();
         command.CommandText = """

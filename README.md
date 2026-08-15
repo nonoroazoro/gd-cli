@@ -1,6 +1,6 @@
 # gd-cli
 
-Agent-first CLI for querying Grim Dawn game data. Items are the primary domain: one item query can return the base record, set relations, game-defined variants, acquisition methods, actors, and coordinates. Affixes and quests are separate query domains.
+Agent-first CLI for querying Grim Dawn game data. Items are the primary domain: one item query can return the base record, skill modifiers, tiered set bonuses, variants, acquisition methods, source entities, and coordinates. Affixes and quests are separate query domains.
 
 The CLI writes compact JSON to stdout and JSON errors to stderr. It is designed for AI agents, not interactive browsing.
 
@@ -20,7 +20,7 @@ New-Item -ItemType Junction `
 
 ## Database lifecycle
 
-Run `gd-cli info` before querying.
+At the start of an agent session, run `gd-cli info` once before the first query. Reuse that result for later queries.
 
 | Result | Action |
 |---|---|
@@ -55,7 +55,7 @@ Use `gd-cli --help` for root commands and global flags. Use `gd-cli <command> --
 `items` is the single item query surface.
 
 - Without `query`, it filters and pages item records.
-- With a name or record ID, it returns matching items plus set relations, variants, acquisition methods, actors, routes, and coordinates.
+- With a name or record ID, it returns matching items plus skill modifiers, tiered set bonuses, variants, acquisition methods, source entities, routes, and coordinates.
 - A set name returns its member items and the related set record.
 - `--families` groups records by stable `nameTag` for MI and localization analysis.
 - Lists omit `unavailable` records by default. An explicit query includes them. Use `--availability all` for catalog audits.
@@ -67,7 +67,7 @@ Availability is evidence-based:
 - `unresolved`: imported evidence is insufficient.
 - `unavailable`: explicit exclusion evidence exists without a live path.
 
-Acquisition methods may include `vendor`, `specificMonster`, `randomDrop`, `craft`, and `unknown`. `unknown` means no supported source was derived; it does not prove the item is unavailable. Check `routesTruncated` before treating monster routes as complete.
+Acquisition methods may include `vendor`, `specificMonster`, `container`, `randomDrop`, `craft`, and `unknown`. `container` represents a specific fixed-container path; generic chests that use world loot remain `randomDrop`. `unknown` means no supported source was derived; it does not prove the item is unavailable. Check `routesTruncated` before treating monster or container routes as complete.
 
 ### Affixes
 

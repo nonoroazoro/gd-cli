@@ -47,6 +47,7 @@ internal sealed class SchemaDescription
             ["affixCount"] = "number of Prefix and Suffix records",
             ["ascendedAffixCount"] = "number of Ascended affix records",
             ["ascendedSkillModifierCount"] = "number of distinct Ascended skill modifiers",
+            ["skillModifierCount"] = "number of distinct item, set, and affix skill modifiers",
             ["variantCount"] = "number of game-defined item variants",
             ["variantSkillModifierCount"] = "number of distinct variant skill modifiers",
             ["levelCount"] = "number of map levels",
@@ -82,8 +83,9 @@ internal sealed class SchemaDescription
             ["availability"] = "known, referenced, unresolved, or unavailable",
             ["miSources"] = "MonsterSource[]",
             ["stats"] = "RawStat[]",
+            ["skillModifiers"] = "modified skills and complete skill modifier RawStat[]",
             ["variants"] = "game-defined variants for a queried item",
-            ["acquisition"] = "vendor, monster, random drop, craft, or unknown methods for a queried item"
+            ["acquisition"] = "vendor, monster, specific container, random drop, craft, or unknown methods for a queried item"
         };
 
     public IReadOnlyDictionary<string, string> ItemQueryFields { get; init; } =
@@ -114,7 +116,7 @@ internal sealed class SchemaDescription
             ["itemLevel"] = "number",
             ["availability"] = "aggregate member availability",
             ["members"] = "ordered item set members",
-            ["stats"] = "RawStat[] for set bonuses"
+            ["bonuses"] = "set bonuses grouped by requiredPieces with RawStat[] and skillModifiers"
         };
 
     public IReadOnlyDictionary<string, string> ItemVariantFields { get; init; } =
@@ -138,11 +140,11 @@ internal sealed class SchemaDescription
     public IReadOnlyDictionary<string, string> AcquisitionFields { get; init; } =
         new Dictionary<string, string>
         {
-            ["kind"] = "vendor, specificMonster, randomDrop, craft, or unknown; unknown does not imply unavailable",
+            ["kind"] = "vendor, specificMonster, container, randomDrop, craft, or unknown; unknown does not imply unavailable",
             ["recipe"] = "craft recipe or design identity when kind is craft",
             ["sources"] = "known recipe acquisition methods when kind is craft",
-            ["actors"] = "grouped source monsters or vendors with all stable record IDs and available map locations",
-            ["routes"] = "specific monster loot graph paths with map coordinates",
+            ["entities"] = "grouped source monsters, vendors, or containers with stable record IDs and map locations",
+            ["routes"] = "monster or container loot graph paths with map coordinates",
             ["path"] = "ordered loot graph steps from the item to a placed source",
             ["conditions"] = "game-native weight, chance, equipment, and level conditions for a path step",
             ["routesTruncated"] = "true when route or depth limits prevented a complete result",
@@ -191,6 +193,7 @@ internal sealed class SchemaDescription
             ["itemAcquisition"] = true,
             ["monsterSpecificAcquisition"] = true,
             ["vendorAcquisition"] = true,
+            ["containerAcquisition"] = true,
             ["randomDropAcquisition"] = true,
             ["craftAcquisition"] = true,
             ["acquisitionMapLocations"] = true,

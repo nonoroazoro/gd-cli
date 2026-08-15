@@ -9,6 +9,7 @@ internal static class AcquisitionCatalogBuilder
         _buildRecipes(connection, transaction);
         _buildSpecificMonsterSources(connection, transaction);
         _buildVendorSources(connection, transaction);
+        _buildRandomDropNodes(connection, transaction);
         _buildRandomSources(connection, transaction);
         _updateMiFlags(connection, transaction);
     }
@@ -98,14 +99,28 @@ internal static class AcquisitionCatalogBuilder
             """);
     }
 
-    private static void _buildRandomSources(SqliteConnection connection, SqliteTransaction transaction)
+    private static void _buildRandomDropNodes(
+        SqliteConnection connection,
+        SqliteTransaction transaction)
     {
         _execute(connection, transaction, """
             WITH RECURSIVE RandomLoot(record_pk) AS (
                 SELECT id
                 FROM records
-                WHERE class = 'LootMasterTable'
-                   OR template LIKE '%/lootmastertable.tpl'
+                WHERE (class = 'LootMasterTable'
+                       OR template LIKE '%/lootmastertable.tpl')
+                  AND (
+                      NOT EXISTS (
+                          SELECT 1 FROM record_references I WHERE I.target_pk = records.id
+                      )
+                      OR EXISTS (
+                          SELECT 1
+                          FROM record_references I
+                          JOIN records S ON S.id = I.source_pk
+                          WHERE I.target_pk = records.id
+                            AND S.template NOT LIKE '%/fixeditemloot.tpl'
+                      )
+                  )
                 UNION
                 SELECT RR.target_pk
                 FROM RandomLoot G
@@ -113,12 +128,21 @@ internal static class AcquisitionCatalogBuilder
                 JOIN record_references RR ON RR.source_pk = G.record_pk
                 JOIN field_names N ON N.id = RR.field_pk
                 WHERE S.record_id LIKE 'records/items/loottables/%'
-                  AND (N.name LIKE 'lootName%' OR N.name = 'records')
+                    AND (N.name LIKE 'lootName%' OR N.name = 'records')
             )
+            INSERT OR IGNORE INTO random_drop_nodes(record_pk)
+            SELECT record_pk
+            FROM RandomLoot;
+            """);
+    }
+
+    private static void _buildRandomSources(SqliteConnection connection, SqliteTransaction transaction)
+    {
+        _execute(connection, transaction, """
             INSERT OR IGNORE INTO acquisition_sources(item_pk, kind, source_pk)
-            SELECT DISTINCT G.record_pk, 'randomDrop', NULL
-            FROM RandomLoot G
-            JOIN items I ON I.record_pk = G.record_pk;
+            SELECT D.record_pk, 'randomDrop', NULL
+            FROM random_drop_nodes D
+            JOIN items I ON I.record_pk = D.record_pk;
             """);
     }
 

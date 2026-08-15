@@ -5,7 +5,7 @@ description: Query Grim Dawn items, sets, variants, availability, acquisition, v
 
 # gd-cli
 
-Run `gd-cli info` before querying.
+Run `gd-cli info` once before the first query of a session. Reuse that result for later queries; do not run `info` before every command.
 
 - On `database_not_found`, run `gd-cli init <grim-dawn-game-directory>` when the directory is known.
 - On `incompatible_database`, explain that `init` is required and wait for explicit user approval.
@@ -19,7 +19,7 @@ Run `gd-cli info` before querying.
 | `init <grim-dawn-game-directory>` | Rebuild the CLI database from game data. |
 | `info` | Show database metadata and valid values. |
 | `schema` | Show fields and capabilities. |
-| `items [query]` | Query items; a specific query also returns set relations, variants, acquisition, and coordinates. |
+| `items [query]` | Query items; a specific query also returns skill modifiers, tiered set bonuses, variants, acquisition, and coordinates. |
 | `affixes [query]` | Query standard and Ascended affixes, effects, and compatibility. |
 | `quests [query]` | List quests or return a detailed quest graph and key coordinates. |
 
@@ -31,8 +31,9 @@ Use root or command help for current arguments and filters.
 
 ## Principles
 
-- Treat items as the primary domain. Use `items <name-or-record-id>` for item identity, variants, set membership, and acquisition instead of composing overlapping lookups.
+- Treat items as the primary domain. Use `items <name-or-record-id>` for identity, modifiers, variants, set bonuses, and acquisition instead of composing overlapping lookups.
 - Preserve game terms, numeric values, record IDs, relationships, and uncertainty. Default to the database language and adapt explanations to the user's language.
+- Treat `container` as a specific fixed-container source; generic world-loot chests remain `randomDrop`.
 - `unknown` acquisition and `unresolved` availability do not mean unavailable.
 - Queries are read-only. `init` replaces only the CLI-owned database.
 
