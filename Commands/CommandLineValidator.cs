@@ -55,10 +55,11 @@ internal static class CommandLineValidator
                     throw new CommandLineException(
                         "--type and --kind are not valid with --family ascended.");
                 }
-                if (options.KindSpecified && options.AscendedCategorySpecified)
+                if ((options.KindSpecified || options.ItemClassSpecified) &&
+                    options.AscendedCategorySpecified)
                 {
                     throw new CommandLineException(
-                        "--kind and --category target different affix families.");
+                        "Neither --type nor --kind can be combined with --category.");
                 }
                 break;
             case "quests":

@@ -39,6 +39,7 @@ public sealed class ItemRepositoryTests
         var exact = new ItemFilter(null, null, null, null, null, Query: "Beta", ExactQuery: true);
         var exactMi = exact with { IsMi = true };
         var partial = exact with { Query = "Alpi", ExactQuery = false };
+        var literalWildcard = exact with { Query = "100%", ExactQuery = false };
 
         Assert.Equal(1, database.Items.Count(exact));
         Assert.Equal(1, database.Items.Count(exactMi));
@@ -47,5 +48,8 @@ public sealed class ItemRepositoryTests
             Assert.Single(database.Items.Load(exactMi, 0, 1)).RecordId);
         Assert.Equal(1, database.Items.Count(partial));
         Assert.Equal(0, database.Items.Count(partial with { IsMi = true }));
+        Assert.Equal(
+            "records/items/percent.dbr",
+            Assert.Single(database.Items.Load(literalWildcard, 0, null)).RecordId);
     }
 }

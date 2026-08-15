@@ -39,6 +39,9 @@ public sealed class CommandLineValidatorTests
         Assert.Throws<CommandLineException>(() => CommandLineValidator.Validate(
             CommandLineParser.Parse(
                 ["affixes", "--kind", "prefix", "--category", "oneHandMelee"])));
+        Assert.Throws<CommandLineException>(() => CommandLineValidator.Validate(
+            CommandLineParser.Parse(
+                ["affixes", "--type", "WeaponMelee_Mace", "--category", "oneHandMelee"])));
     }
 
     [Fact]

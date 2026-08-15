@@ -57,13 +57,17 @@ public sealed class CommandLineParserTests
     [Fact]
     public void ParseReadsUnifiedAffixFilters()
     {
-        var options = CommandLineParser.Parse(
-            ["affixes", "of", "Fervor", "--family", "ascended", "--type", "WeaponMelee_Mace", "--category", "oneHandMelee"]);
+        var standard = CommandLineParser.Parse(
+            ["affixes", "of", "Fervor", "--family", "standard", "--type", "WeaponMelee_Mace", "--kind", "prefix"]);
+        var ascended = CommandLineParser.Parse(
+            ["affixes", "--family", "ascended", "--category", "oneHandMelee"]);
 
-        Assert.Equal("of Fervor", options.AffixQuery);
-        Assert.Equal("ascended", options.AffixFamily);
-        Assert.Equal("WeaponMelee_Mace", options.ItemClass);
-        Assert.Equal("oneHandMelee", options.AscendedCategory);
+        Assert.Equal("of Fervor", standard.AffixQuery);
+        Assert.Equal("standard", standard.AffixFamily);
+        Assert.Equal("WeaponMelee_Mace", standard.ItemClass);
+        Assert.Equal("prefix", standard.Kind);
+        Assert.Equal("ascended", ascended.AffixFamily);
+        Assert.Equal("oneHandMelee", ascended.AscendedCategory);
     }
 
     [Fact]
